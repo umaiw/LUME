@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import nacl from 'tweetnacl';
 import { decodeBase64 } from 'tweetnacl-util';
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import rateLimit from 'express-rate-limit';
 
 import database from '../db/database';
 import { broadcastToUser } from '../websocket/handler';
@@ -24,7 +24,7 @@ const sendRateLimit = rateLimit({
         return `uid:${user.id}`;
       }
     }
-    return `ip:${ipKeyGenerator(req.ip || '127.0.0.1')}`;
+    return `ip:${req.ip || '127.0.0.1'}`;
   },
 });
 

@@ -9,7 +9,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 COPY tsconfig.json ./
 COPY src ./src
@@ -21,7 +21,7 @@ ENV NODE_ENV=production
 ENV PORT=3001
 
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --legacy-peer-deps
 
 COPY --from=build /app/dist ./dist
 

@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
 import nacl from 'tweetnacl';
 import { decodeBase64 } from 'tweetnacl-util';
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import rateLimit from 'express-rate-limit';
 
 import database from '../db/database';
 import { requireSignature } from '../middleware/auth';
@@ -31,7 +31,7 @@ const registerRateLimit = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req: Request): string => `ip:${ipKeyGenerator(req.ip || '127.0.0.1')}`,
+  keyGenerator: (req: Request): string => `ip:${req.ip || '127.0.0.1'}`,
 });
 
 const usernameCheckRateLimit = rateLimit({
@@ -39,7 +39,7 @@ const usernameCheckRateLimit = rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req: Request): string => `ip:${ipKeyGenerator(req.ip || '127.0.0.1')}`,
+  keyGenerator: (req: Request): string => `ip:${req.ip || '127.0.0.1'}`,
 });
 
 const sessionRateLimit = rateLimit({
@@ -55,7 +55,7 @@ const sessionRateLimit = rateLimit({
         return `uid:${user.id}`;
       }
     }
-    return `ip:${ipKeyGenerator(req.ip || '127.0.0.1')}`;
+    return `ip:${req.ip || '127.0.0.1'}`;
   },
 });
 
@@ -73,7 +73,7 @@ const keysRateLimit = rateLimit({
         return `uid:${user.id}`;
       }
     }
-    return `ip:${ipKeyGenerator(req.ip || '127.0.0.1')}`;
+    return `ip:${req.ip || '127.0.0.1'}`;
   },
 });
 
