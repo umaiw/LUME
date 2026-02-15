@@ -1,42 +1,29 @@
-# LUME
-
-E2EE messenger — Next.js 16 + Express + WebSocket + SQLite + TweetNaCl
-
-## Stack
-
-| Layer | Tech |
-|-------|------|
-| Client | Next.js 16, React 19, TailwindCSS 4, Zustand 5, TweetNaCl |
-| Server | Express 4, WebSocket (ws 8), better-sqlite3, JWT |
-| CI/CD | GitHub Actions (6 jobs), Dependabot, Docker |
-| Infra | Fly.io (server), TBD (client) |
-
-## Structure
-
-```
-client/src/          — Next.js app, components, crypto, hooks, stores
-server/src/          — Express routes, WebSocket handler, SQLite DB
-server/test/         — Vitest tests (unit + integration)
-.github/workflows/   — CI, deploy-server, deploy-client, dependabot
-```
-
-## Dev Setup
-
-```bash
-# Server
-cd server && npm i && cp .env.example .env && npm run dev   # :3001
-
-# Client
-cd client && npm i && npm run dev                            # :3000
-```
-
-## CI Status
-
-6 parallel jobs: Server Lint/Typecheck, Server Tests, Server Build, Client Lint, Client Build, Docker Build
-
----
-
 ## Changelog
+
+### `cd5ead0` — 2026-02-15 (feat + ci)
+**feat: read receipts, desktop notifications, message/contact deletion + ci: disable deploy triggers**
+
+Server:
+- `server/src/websocket/handler.ts` — new WS type `read`: receives `{ recipientId, messageIds }`, forwards to sender as `read_receipt` event. Added `handleReadReceipt()` with UUID validation
+
+Client:
+- `client/src/lib/notifications.ts` — **new** Desktop Notifications API: permission request, show notifications for incoming messages
+- `client/src/lib/websocket.ts` — new method `sendReadReceipt(recipientId, messageIds)` for sending read receipts via WS
+- `client/src/hooks/useMessengerSync.ts` — handle incoming `read_receipt` events → update message status to `read`. Send read receipt on chat open and on message received in active chat. Desktop notification for messages in inactive chat
+- `client/src/components/OnlineStatus.tsx` — added `requestNotificationPermission()` on mount
+- `client/src/app/chat/[id]/page.tsx` — message deletion: delete button (hover) on each message with `deleteMessage()`. Contact deletion: "Delete Contact" button in contact profile with confirmation — deletes contact, chat, ratchet session and redirects to `/chats`
+
+CI:
+- `.github/workflows/deploy-server.yml` — disabled push trigger (only `workflow_dispatch`) until `FLY_API_TOKEN` is configured
+- `.github/workflows/deploy-client.yml` — disabled push trigger (only `workflow_dispatch`) until hosting is configured
+
+8 files changed, +320 / −48
+
+### `e797463` — 2026-02-15 (docs)
+**docs: update README.md**
+
+### `e40a8c0` — 2026-02-15 (docs)
+**docs: rewrite README as dev changelog**
 
 ### `9cf6b40` — 2026-02-15 (patch)
 **fix: TS2556 spread in getUsersByIds, fix integration test self-bundle block**
@@ -93,14 +80,3 @@ Client:
 - GitHub repo created (`rekonov/LUME`, private)
 - CI/CD: `ci.yml` (6 jobs), `deploy-server.yml`, `deploy-client.yml`, `dependabot.yml`
 - Docker: `server/Dockerfile`, `server/fly.toml`
-
----
-
-## Known Issues
-
-- `deploy-server.yml` / `deploy-client.yml` — trigger on push but no secrets configured yet (Fly.io token, hosting)
-- Dependabot PRs accumulating — need periodic merge
-
-## License
-
-Private — All rights reserved
