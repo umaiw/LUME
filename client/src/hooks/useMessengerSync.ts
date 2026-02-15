@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 import { authApi, messagesApi } from '@/lib/api';
 import { wsClient } from '@/lib/websocket';
+import { notifyIncomingMessage } from '@/lib/notifications';
 import { useAuthStore, useContactsStore, useChatsStore, useSessionsStore, useUIStore } from '@/stores';
 import {
   loadChats,
@@ -513,6 +514,17 @@ export function useMessengerSync() {
         if (processed) {
           await messagesApi.acknowledge(data.messageId, identityKeys);
 
+          // If the chat is currently active, send a read receipt immediately
+          const activeChat = useChatsStore.getState().activeChatId;
+          const chatsNow = useChatsStore.getState().chats;
+          const activeContactChat = chatsNow.find((c) => c.id === activeChat);
+          if (activeContactChat && activeContactChat.contactId === data.senderId) {
+            wsClient.sendReadReceipt(data.senderId, [data.messageId]);
+          } else {
+            // Notify if the chat is not currently active
+            notifyIncomingMessage(data.senderUsername);
+          }
+
           // Replenish OPKs after consuming during X3DH handshakes
           const currentPin = useAuthStore.getState().pin;
           const currentUserId = useAuthStore.getState().userId;
@@ -528,6 +540,33 @@ export function useMessengerSync() {
       wsClient.off('new_message', handleNewMessage);
     };
   }, [hydrated, isAuthenticated, identityKeys]);
+
+  // Handle incoming read receipts — update message status for our sent messages
+  useEffect(() => {
+    if (!hydrated || !isAuthenticated) return undefined;
+
+    const handleReadReceipt = (rawData: unknown) => {
+      const data = rawData as {
+        senderId: string;
+        messageIds: string[];
+      };
+
+      const chats = useChatsStore.getState().chats;
+      for (const chat of chats) {
+        for (const msgId of data.messageIds) {
+          const msg = chat.messages.find((m) => m.id === msgId);
+          if (msg && msg.status !== 'read') {
+            useChatsStore.getState().updateMessage(chat.id, msgId, { status: 'read' });
+          }
+        }
+      }
+    };
+
+    wsClient.on('read', handleReadReceipt);
+    return () => {
+      wsClient.off('read', handleReadReceipt);
+    };
+  }, [hydrated, isAuthenticated]);
 
   useEffect(() => {
     if (!hydrated || !isAuthenticated) return undefined;

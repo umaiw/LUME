@@ -37,6 +37,12 @@ interface TypingMessage extends WSMessage {
   isTyping: boolean;
 }
 
+interface ReadReceiptMessage extends WSMessage {
+  type: "read";
+  recipientId: string;
+  messageIds: string[];
+}
+
 function getClientIp(req: IncomingMessage): string {
   const trustProxy =
     process.env.TRUST_PROXY === "1" ||
@@ -201,6 +207,14 @@ export function initWebSocket(wss: WebSocketServer): void {
               handleTyping(ws.userId, message as TypingMessage);
             }
             break;
+          case "read":
+            if (
+              typeof (message as ReadReceiptMessage).recipientId === "string" &&
+              Array.isArray((message as ReadReceiptMessage).messageIds)
+            ) {
+              handleReadReceipt(ws.userId, message as ReadReceiptMessage);
+            }
+            break;
           default:
             break;
         }
@@ -264,6 +278,27 @@ function handleTyping(senderId: string, message: TypingMessage): void {
     senderId,
     senderUsername: sender.username,
     isTyping: message.isTyping,
+  });
+}
+
+function handleReadReceipt(
+  senderId: string,
+  message: ReadReceiptMessage,
+): void {
+  // Validate: max 100 IDs per receipt, all strings
+  const ids = message.messageIds;
+  if (
+    ids.length === 0 ||
+    ids.length > 100 ||
+    ids.some((id) => typeof id !== "string")
+  ) {
+    return;
+  }
+
+  broadcastToUser(message.recipientId, {
+    type: "read",
+    senderId,
+    messageIds: ids,
   });
 }
 

@@ -1,12 +1,13 @@
 name: Deploy Server
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'server/**'
-      - '.github/workflows/deploy-server.yml'
   workflow_dispatch:
+  # push trigger disabled until FLY_API_TOKEN is configured
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - 'server/**'
+  #     - '.github/workflows/deploy-server.yml'
 
 concurrency:
   group: deploy-server
