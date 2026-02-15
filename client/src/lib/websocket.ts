@@ -183,6 +183,10 @@ class WebSocketClient {
                 // Heartbeat response — no action needed
                 break;
 
+            case 'read':
+                // Read receipt — handled by useMessengerSync via event emitter
+                break;
+
             default:
                 console.warn('Unknown WS message type:', type);
         }
@@ -203,6 +207,14 @@ class WebSocketClient {
      */
     sendTyping(recipientId: string, isTyping: boolean): void {
         this.send({ type: 'typing', recipientId, isTyping });
+    }
+
+    /**
+     * Отправляет подтверждение прочтения
+     */
+    sendReadReceipt(recipientId: string, messageIds: string[]): void {
+        if (messageIds.length === 0) return;
+        this.send({ type: 'read', recipientId, messageIds });
     }
 
     /**

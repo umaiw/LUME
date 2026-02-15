@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState, use, memo } from "react";
+import { useEffect, useRef, useState, use, memo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 import MessengerShell from "@/components/messenger/MessengerShell";
@@ -125,53 +125,107 @@ function StatusIcon({ status }: { status: Message["status"] }) {
 function MessageBubble({
   message,
   isMine,
+  onDelete,
 }: {
   message: Message;
   isMine: boolean;
+  onDelete: (messageId: string) => void;
 }) {
+  const [showActions, setShowActions] = useState(false);
   const timeLabel = new Date(message.timestamp).toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
   });
 
   return (
-    <div className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`max-w-[78%] px-4 py-2.5 ${isMine ? "message-bubble-sent" : "message-bubble-received"}`}
-      >
-        <p className="break-words text-[15px] leading-relaxed">
-          {message.content}
-        </p>
-        <div
-          className={`flex items-center justify-end gap-1.5 mt-1 ${isMine ? "opacity-80" : "text-[var(--text-muted)]"}`}
+    <div className={`group flex ${isMine ? "justify-end" : "justify-start"}`}>
+      {/* Delete button — appears on hover (left of own messages) */}
+      {isMine && (
+        <button
+          type="button"
+          onClick={() => setShowActions(!showActions)}
+          className="self-center mr-2 opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity p-1"
+          title="Delete message"
         >
-          <span className="text-[11px] uppercase tracking-[0.06em]">
-            {timeLabel}
-          </span>
-          {isMine ? <StatusIcon status={message.status} /> : null}
-          {message.selfDestructAt ? (
-            <svg
-              className="w-4 h-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M12 8v5l3 2"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          ) : null}
+          <svg className="w-4 h-4 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      )}
+      <div className="relative">
+        <div
+          className={`max-w-[78%] px-4 py-2.5 ${isMine ? "message-bubble-sent" : "message-bubble-received"}`}
+        >
+          <p className="break-words text-[15px] leading-relaxed">
+            {message.content}
+          </p>
+          <div
+            className={`flex items-center justify-end gap-1.5 mt-1 ${isMine ? "opacity-80" : "text-[var(--text-muted)]"}`}
+          >
+            <span className="text-[11px] uppercase tracking-[0.06em]">
+              {timeLabel}
+            </span>
+            {isMine ? <StatusIcon status={message.status} /> : null}
+            {message.selfDestructAt ? (
+              <svg
+                className="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 8v5l3 2"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            ) : null}
+          </div>
         </div>
+
+        {/* Inline delete confirmation */}
+        {showActions && (
+          <div className="absolute top-0 right-0 -mt-8 flex gap-1 z-10">
+            <button
+              type="button"
+              onClick={() => {
+                onDelete(message.id);
+                setShowActions(false);
+              }}
+              className="px-2 py-1 text-[11px] uppercase tracking-[0.06em] font-semibold rounded-md bg-red-500/90 text-white hover:bg-red-600 transition-colors"
+            >
+              Delete
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowActions(false)}
+              className="px-2 py-1 text-[11px] uppercase tracking-[0.06em] font-semibold rounded-md bg-[var(--surface-strong)] text-[var(--text-secondary)] border border-[var(--border)] hover:bg-[var(--surface)] transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
+      {/* Delete button — appears on hover (right of received messages) */}
+      {!isMine && (
+        <button
+          type="button"
+          onClick={() => setShowActions(!showActions)}
+          className="self-center ml-2 opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity p-1"
+          title="Delete message"
+        >
+          <svg className="w-4 h-4 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
@@ -184,7 +238,8 @@ const MessageBubbleMemo = memo(
     prev.message.status === next.message.status &&
     prev.message.content === next.message.content &&
     prev.message.timestamp === next.message.timestamp &&
-    prev.message.selfDestructAt === next.message.selfDestructAt,
+    prev.message.selfDestructAt === next.message.selfDestructAt &&
+    prev.onDelete === next.onDelete,
 );
 
 export default function ChatPage({ params }: ChatPageProps) {
@@ -198,12 +253,14 @@ export default function ChatPage({ params }: ChatPageProps) {
   const typingStateRef = useRef(false);
 
   const { userId, identityKeys, pin } = useAuthStore();
-  const { contacts } = useContactsStore();
-  const { upsertSession } = useSessionsStore();
+  const { contacts, removeContact } = useContactsStore();
+  const { upsertSession, deleteSession } = useSessionsStore();
   const {
     chats,
     addMessage,
     updateMessage,
+    deleteMessage,
+    deleteChat,
     markAsRead,
     setSelfDestructTimer,
     activeChatId,
@@ -239,6 +296,7 @@ export default function ChatPage({ params }: ChatPageProps) {
   const [selfDestructTime, setSelfDestructTime] = useState<number | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [copiedSafety, setCopiedSafety] = useState(false);
+  const [showDeleteContact, setShowDeleteContact] = useState(false);
 
   const chat = chats.find((c) => c.id === chatId);
   const contact = contacts.find((c) => c.id === chat?.contactId);
@@ -260,8 +318,21 @@ export default function ChatPage({ params }: ChatPageProps) {
     if (hydrated) {
       setActiveChat(chatId);
       markAsRead(chatId);
+
+      // Send read receipts for unread messages from the contact
+      if (chat && contactId) {
+        const unreadFromContact = chat.messages.filter(
+          (m) => m.senderId === contactId && m.status !== 'read',
+        );
+        if (unreadFromContact.length > 0) {
+          wsClient.sendReadReceipt(
+            contactId,
+            unreadFromContact.map((m) => m.id),
+          );
+        }
+      }
     }
-  }, [hydrated, chatId, markAsRead, setActiveChat]);
+  }, [hydrated, chatId, markAsRead, setActiveChat, chat, contactId]);
 
   useEffect(() => {
     if (!chat) return;
@@ -345,6 +416,15 @@ export default function ChatPage({ params }: ChatPageProps) {
       }
     };
   }, [contactId]);
+
+  const handleDeleteMessage = useCallback(
+    (messageId: string) => {
+      if (chatId) {
+        deleteMessage(chatId, messageId);
+      }
+    },
+    [chatId, deleteMessage],
+  );
 
   const handleSend = async () => {
     if (!messageText.trim() || !contact || !userId || !identityKeys) return;
@@ -693,6 +773,7 @@ export default function ChatPage({ params }: ChatPageProps) {
                 key={m.id}
                 message={m}
                 isMine={m.senderId === userId}
+                onDelete={handleDeleteMessage}
               />
             ))}
             <div ref={messagesEndRef} />
@@ -894,6 +975,45 @@ export default function ChatPage({ params }: ChatPageProps) {
               </p>
             </div>
           ) : null}
+
+          {/* Delete Contact */}
+          {!showDeleteContact ? (
+            <button
+              type="button"
+              className="mt-6 w-full py-3 rounded-full border border-red-500/30 text-red-400 text-[12px] font-semibold uppercase tracking-[0.08em] hover:bg-red-500/10 transition-colors"
+              onClick={() => setShowDeleteContact(true)}
+            >
+              Delete Contact
+            </button>
+          ) : (
+            <div className="mt-6 p-4 rounded-[var(--radius-md)] border border-red-500/30 bg-red-500/5">
+              <p className="text-[12px] text-red-400 mb-3 text-center">
+                This will delete the contact, chat history, and encryption session. This cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteContact(false)}
+                  className="flex-1 apple-button-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (!contact || !contactId) return;
+                    deleteChat(chatId);
+                    deleteSession(contactId);
+                    removeContact(contactId);
+                    setShowProfile(false);
+                    setShowDeleteContact(false);
+                    router.push('/chats');
+                  }}
+                  className="flex-1 py-3 rounded-full border border-red-500/30 bg-red-500/20 text-red-400 text-[12px] font-semibold uppercase tracking-[0.08em] hover:bg-red-500/30 transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </Modal>
 
