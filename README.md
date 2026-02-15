@@ -1,5 +1,30 @@
 ## Changelog
 
+### `cd5ead0` — 2026-02-15 (feat + ci)
+**feat: read receipts, desktop notifications, message/contact deletion + ci: disable deploy triggers**
+
+Server:
+- `server/src/websocket/handler.ts` — new WS type `read`: receives `{ recipientId, messageIds }`, forwards to sender as `read_receipt` event. Added `handleReadReceipt()` with UUID validation
+
+Client:
+- `client/src/lib/notifications.ts` — **new** Desktop Notifications API: permission request, show notifications for incoming messages
+- `client/src/lib/websocket.ts` — new method `sendReadReceipt(recipientId, messageIds)` for sending read receipts via WS
+- `client/src/hooks/useMessengerSync.ts` — handle incoming `read_receipt` events → update message status to `read`. Send read receipt on chat open and on message received in active chat. Desktop notification for messages in inactive chat
+- `client/src/components/OnlineStatus.tsx` — added `requestNotificationPermission()` on mount
+- `client/src/app/chat/[id]/page.tsx` — message deletion: delete button (hover) on each message with `deleteMessage()`. Contact deletion: "Delete Contact" button in contact profile with confirmation — deletes contact, chat, ratchet session and redirects to `/chats`
+
+CI:
+- `.github/workflows/deploy-server.yml` — disabled push trigger (only `workflow_dispatch`) until `FLY_API_TOKEN` is configured
+- `.github/workflows/deploy-client.yml` — disabled push trigger (only `workflow_dispatch`) until hosting is configured
+
+8 files changed, +320 / −48
+
+### `e797463` — 2026-02-15 (docs)
+**docs: update README.md**
+
+### `e40a8c0` — 2026-02-15 (docs)
+**docs: rewrite README as dev changelog**
+
 ### `9cf6b40` — 2026-02-15 (patch)
 **fix: TS2556 spread in getUsersByIds, fix integration test self-bundle block**
 - `server/src/db/database.ts` — fixed TypeScript spread argument error in cached `getUsersByIds` prepared statements
