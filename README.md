@@ -1,41 +1,3 @@
-# LUME
-
-E2EE messenger — Next.js 16 + Express + WebSocket + SQLite + TweetNaCl
-
-## Stack
-
-| Layer | Tech |
-|-------|------|
-| Client | Next.js 16, React 19, TailwindCSS 4, Zustand 5, TweetNaCl |
-| Server | Express 4, WebSocket (ws 8), better-sqlite3, JWT |
-| CI/CD | GitHub Actions (6 jobs), Dependabot, Docker |
-| Infra | Fly.io (server), TBD (client) |
-
-## Structure
-
-```
-client/src/          — Next.js app, components, crypto, hooks, stores
-server/src/          — Express routes, WebSocket handler, SQLite DB
-server/test/         — Vitest tests (unit + integration)
-.github/workflows/   — CI, deploy-server, deploy-client, dependabot
-```
-
-## Dev Setup
-
-```bash
-# Server
-cd server && npm i && cp .env.example .env && npm run dev   # :3001
-
-# Client
-cd client && npm i && npm run dev                            # :3000
-```
-
-## CI Status
-
-6 parallel jobs: Server Lint/Typecheck, Server Tests, Server Build, Client Lint, Client Build, Docker Build
-
----
-
 ## Changelog
 
 ### `9cf6b40` — 2026-02-15 (patch)
@@ -95,12 +57,3 @@ Client:
 - Docker: `server/Dockerfile`, `server/fly.toml`
 
 ---
-
-## Known Issues
-
-- `deploy-server.yml` / `deploy-client.yml` — trigger on push but no secrets configured yet (Fly.io token, hosting)
-- Dependabot PRs accumulating — need periodic merge
-
-## License
-
-Private — All rights reserved
