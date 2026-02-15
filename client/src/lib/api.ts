@@ -90,9 +90,14 @@ function signRequest(
     identityKeys: IdentityKeys
 ): Record<string, string> {
     const timestamp = Date.now().toString();
-    const nonce = (globalThis.crypto && 'randomUUID' in globalThis.crypto)
-        ? globalThis.crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const crypto = globalThis.crypto;
+    const nonce = (crypto && typeof (crypto as Crypto & { randomUUID?: () => string }).randomUUID === 'function')
+        ? (crypto as Crypto & { randomUUID: () => string }).randomUUID()
+        : (() => {
+            const bytes = new Uint8Array(16);
+            crypto.getRandomValues(bytes);
+            return `${Date.now()}-${Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')}`;
+          })();
     const normalizedMethod = method.toUpperCase();
     const normalizedPath = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     const bodyString = body && Object.keys(body as object).length > 0 ? JSON.stringify(body) : '';

@@ -17,6 +17,7 @@ import { useContactActions } from "@/hooks/useContactActions";
 import { usePanic } from "@/hooks/usePanic";
 import { useAuthStore, useContactsStore, useChatsStore } from "@/stores";
 import { exportEncryptedBackup, importEncryptedBackup } from "@/crypto/storage";
+import { ChatListSkeleton } from "@/components/ui";
 
 export default function ChatsPage() {
   const router = useRouter();
@@ -57,9 +58,15 @@ export default function ChatsPage() {
 
   if (!hydrated) {
     return (
-      <div className="h-screen flex items-center justify-center bg-[var(--bg-primary)]">
-        <div className="w-8 h-8 border-2 mono-spinner rounded-full animate-spin" />
-      </div>
+      <MessengerShell
+        leftRail={<div className="h-full" />}
+        chatList={<ChatListSkeleton />}
+        main={
+          <div className="lume-panel h-full rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] flex items-center justify-center">
+            <div className="w-8 h-8 border-2 mono-spinner rounded-full animate-spin" />
+          </div>
+        }
+      />
     );
   }
 

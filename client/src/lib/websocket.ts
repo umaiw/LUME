@@ -42,7 +42,7 @@ class WebSocketClient {
                     resolve();
                     return;
                 }
-                this.disconnect();
+                this._closeSocket();
             }
 
             this.token = token;
@@ -308,16 +308,28 @@ class WebSocketClient {
     }
 
     /**
-     * Закрывает соединение
+     * Closes the underlying socket without clearing event handlers.
+     * Used internally on reconnect to preserve registered listeners.
+     */
+    private _closeSocket(): void {
+        this.stopPing();
+        if (this.ws) {
+            this.ws.onopen = null;
+            this.ws.onmessage = null;
+            this.ws.onclose = null;
+            this.ws.onerror = null;
+            this.ws.close();
+            this.ws = null;
+        }
+    }
+
+    /**
+     * Закрывает соединение (full logout — clears handlers)
      */
     disconnect(): void {
         this.isManuallyDisconnected = true;
         this.clearReconnectTimer();
-        this.stopPing();
-        if (this.ws) {
-            this.ws.close();
-            this.ws = null;
-        }
+        this._closeSocket();
         this.token = null;
         this.handlers.clear();
         useUIStore.getState().setWsStatus('disconnected');

@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import type { IdentityKeys } from '@/crypto/keys';
 import type { Contact } from '@/crypto/storage';
+import { clearCachedMasterKey } from '@/crypto/storage';
 import type { SerializedSession } from '@/crypto/ratchet';
 
 // ==================== Auth Store ====================
@@ -34,14 +35,16 @@ export const useAuthStore = create<AuthState>((set) => ({
     setAuth: (userId, username, identityKeys, pin) =>
         set({ isAuthenticated: true, userId, username, identityKeys, pin }),
 
-    clearAuth: () =>
+    clearAuth: () => {
+        clearCachedMasterKey();
         set({
             isAuthenticated: false,
             userId: null,
             username: null,
             identityKeys: null,
             pin: null,
-        }),
+        });
+    },
 
     setPin: (pin) => set({ pin }),
 }));

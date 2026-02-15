@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { loadSettings, saveSettings } from '@/crypto/storage';
+import { applyTheme, getCurrentTheme } from '@/lib/theme';
 
 export default function ThemeToggle({
   className = '',
@@ -12,29 +12,8 @@ export default function ThemeToggle({
 }) {
   const sizes = size === 'sm' ? 'w-9 h-9' : 'w-10 h-10';
 
-  const applyTheme = (next: 'light' | 'dark') => {
-    document.documentElement.dataset.theme = next;
-    document.documentElement.style.colorScheme = next;
-    try {
-      localStorage.setItem('lume-theme', next);
-    } catch {
-      // ignore
-    }
-
-    void (async () => {
-      try {
-        const current = await loadSettings();
-        if (current.theme !== next) {
-          await saveSettings({ ...current, theme: next });
-        }
-      } catch {
-        // ignore
-      }
-    })();
-  };
-
   const toggle = () => {
-    const current = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+    const current = getCurrentTheme();
     applyTheme(current === 'dark' ? 'light' : 'dark');
   };
 

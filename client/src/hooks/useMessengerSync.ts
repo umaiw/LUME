@@ -474,17 +474,22 @@ export function useMessengerSync() {
       unsubscribeChats();
       unsubscribeContacts();
       unsubscribeSessions();
+
+      // Flush any pending debounced writes before unmounting
       if (saveChatsTimer) {
         clearTimeout(saveChatsTimer);
         saveChatsTimer = null;
+        saveChats(useChatsStore.getState().chats, pin).catch(console.error);
       }
       if (saveContactsTimer) {
         clearTimeout(saveContactsTimer);
         saveContactsTimer = null;
+        saveContacts(useContactsStore.getState().contacts, pin).catch(console.error);
       }
       if (saveSessionsTimer) {
         clearTimeout(saveSessionsTimer);
         saveSessionsTimer = null;
+        saveRatchetSessions(useSessionsStore.getState().sessions, pin).catch(console.error);
       }
     };
   }, [hydrated, isAuthenticated, userId, pin, identityKeys, setContacts, setChats, setSessions, clearAuth, router]);
@@ -551,13 +556,16 @@ export function useMessengerSync() {
         messageIds: string[];
       };
 
+      const msgIdSet = new Set(data.messageIds);
       const chats = useChatsStore.getState().chats;
-      for (const chat of chats) {
-        for (const msgId of data.messageIds) {
-          const msg = chat.messages.find((m) => m.id === msgId);
-          if (msg && msg.status !== 'read') {
-            useChatsStore.getState().updateMessage(chat.id, msgId, { status: 'read' });
-          }
+
+      // The read receipt sender is the contact — find their chat directly
+      const chat = chats.find((c) => c.contactId === data.senderId);
+      if (!chat) return;
+
+      for (const msg of chat.messages) {
+        if (msgIdSet.has(msg.id) && msg.status !== 'read') {
+          useChatsStore.getState().updateMessage(chat.id, msg.id, { status: 'read' });
         }
       }
     };

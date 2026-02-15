@@ -155,12 +155,9 @@ app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
 
 app.get("/api/health", (_req, res) => {
-  const stats = getConnectionStats();
   res.json({
     status: "ok",
     timestamp: new Date().toISOString(),
-    connectedUsers: stats.users,
-    activeConnections: stats.connections,
   });
 });
 

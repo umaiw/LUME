@@ -12,7 +12,7 @@ import MessengerShell from "@/components/messenger/MessengerShell";
 import LeftRail from "@/components/messenger/LeftRail";
 import ChatListPanel from "@/components/messenger/ChatListPanel";
 import RightRail from "@/components/messenger/RightRail";
-import { Button, Input, Modal } from "@/components/ui";
+import { Button, Input, Modal, ChatListSkeleton, MessagesSkeleton } from "@/components/ui";
 import { useMessengerSync } from "@/hooks/useMessengerSync";
 import { useContactActions } from "@/hooks/useContactActions";
 import { usePanic } from "@/hooks/usePanic";
@@ -581,9 +581,21 @@ export default function ChatPage({ params }: ChatPageProps) {
 
   if (!hydrated) {
     return (
-      <div className="h-screen flex items-center justify-center bg-[var(--bg-primary)]">
-        <div className="w-8 h-8 border-2 mono-spinner rounded-full animate-spin" />
-      </div>
+      <MessengerShell
+        leftRail={<div className="h-full" />}
+        chatList={<ChatListSkeleton />}
+        main={
+          <div className="lume-panel h-full rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] overflow-hidden flex flex-col">
+            <div className="px-5 pt-5 pb-4 border-b border-[var(--border)]/70">
+              <div className="flex items-center gap-3">
+                <span className="block w-10 h-10 rounded-full bg-[var(--surface-alt)] animate-pulse" />
+                <span className="block h-3 w-24 rounded-full bg-[var(--surface-alt)] animate-pulse" />
+              </div>
+            </div>
+            <MessagesSkeleton />
+          </div>
+        }
+      />
     );
   }
   if (isPanicMode) {

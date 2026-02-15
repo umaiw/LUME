@@ -183,6 +183,12 @@ router.post("/register", registerRateLimit, (req: Request, res: Response) => {
       return;
     }
 
+    // Cap initial prekey upload
+    if (body.oneTimePrekeys && body.oneTimePrekeys.length > 1000) {
+      res.status(400).json({ error: "Too many initial prekeys (max 1000)" });
+      return;
+    }
+
     if (
       !verifySignature(
         body.signedPrekey,
@@ -403,6 +409,16 @@ router.post("/prekeys", requireSignature, (req: Request, res: Response) => {
 
     if (user.identity_key !== req.user?.identityKey) {
       res.status(403).json({ error: "Unauthorized: Identity key mismatch" });
+      return;
+    }
+
+    // Enforce total prekey cap to prevent storage abuse
+    const MAX_PREKEYS = 1000;
+    const currentCount = database.getPrekeyCount(userId);
+    if (currentCount + prekeys.length > MAX_PREKEYS) {
+      res.status(400).json({
+        error: `Prekey limit exceeded. Max ${MAX_PREKEYS}, current ${currentCount}, attempted +${prekeys.length}`,
+      });
       return;
     }
 

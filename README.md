@@ -1,5 +1,36 @@
 ## Changelog
 
+### `dcd2cfe` — 2026-02-15 (feat + security)
+**feat: settings page, security hardening, read receipts UI, delete messages/contacts**
+
+New files:
+- `client/src/app/settings/page.tsx` — **new** full Settings page: theme, notifications, self-destruct, hidden chats, Change PIN (re-encrypts all data), Delete Account (server + local wipe)
+- `client/src/components/ui/Skeleton.tsx` — **new** skeleton loading components
+- `client/src/lib/theme.ts` — **new** unified theme module (replaces duplicated logic)
+
+Security (12 fixes):
+- `client/src/app/settings/page.tsx` — Delete Account now calls `authApi.deleteAccount()` before `panicWipe()` (was local-only) [CRITICAL]
+- `client/src/lib/websocket.ts` — split `disconnect()` into `_closeSocket()` (internal, preserves handlers) and `disconnect()` (full logout) [HIGH]
+- `client/src/lib/api.ts` — nonce fallback replaced `Math.random()` with `crypto.getRandomValues()` [HIGH]
+- `client/src/crypto/storage.ts` — `clearCachedMasterKey()` exported, called in `clearAuth()`; constant-time PIN verify via XOR; `hiddenChatPinHash` moved to separate IDB key; brute-force lockout persists in IDB; Change PIN with PBKDF2 100K iterations re-encryption [4×MEDIUM]
+- `client/src/hooks/useMessengerSync.ts` — debounced saves flush on unmount (was losing 600ms writes); read receipt handler O(1) via Set + direct lookup [MEDIUM+LOW]
+- `client/src/lib/theme.ts` — `applyTheme()` accepts `skipPersist` flag (no double-write) [LOW]
+- `server/src/index.ts` — `/api/health` stripped `connectedUsers`/`activeConnections` [LOW]
+- `server/src/routes/auth.ts` — prekey upload cap 1000/user on registration + rotation [LOW]
+
+Client:
+- `client/src/app/chat/[id]/page.tsx` — self-destruct default from Settings applied to new chats
+- `client/src/app/chats/page.tsx` — minor hook updates
+- `client/src/components/messenger/LeftRail.tsx` — Settings navigation (gear icon)
+- `client/src/components/theme/ThemeToggle.tsx` — uses unified `theme.ts`
+- `client/src/components/ui/index.ts` — exports `Skeleton`
+- `client/src/stores/index.ts` — `clearCachedMasterKey()` call on auth clear
+
+Server:
+- `server/src/index.ts` — graceful shutdown (SIGTERM/SIGINT), metrics blocked in production, trust proxy via env
+
+16 files changed, +1056 / −61
+
 ### `cd5ead0` — 2026-02-15 (feat + ci)
 **feat: read receipts, desktop notifications, message/contact deletion + ci: disable deploy triggers**
 

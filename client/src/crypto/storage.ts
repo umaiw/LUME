@@ -19,6 +19,8 @@ const STORAGE_KEYS = {
   SETTINGS: "settings",
   PIN_HASH: "pin_hash",
   ENCRYPTION_SALT: "encryption_salt",
+  HIDDEN_CHAT_PIN: "hidden_chat_pin",
+  LOCKOUT: "lockout_state",
 } as const;
 
 interface EncryptedDataV1 {
@@ -129,6 +131,13 @@ async function getOrCreateEncryptionSalt(): Promise<Uint8Array> {
 
 let cachedMasterKey: { pin: string; saltB64: string; key: Uint8Array } | null =
   null;
+
+/**
+ * Clears the in-memory cached master key. Must be called on logout / clearAuth.
+ */
+export function clearCachedMasterKey(): void {
+  cachedMasterKey = null;
+}
 
 async function getMasterKey(pin: string): Promise<Uint8Array> {
   const salt = await getOrCreateEncryptionSalt();
@@ -412,6 +421,103 @@ export async function deleteRatchetSession(
   await saveRatchetSessions(sessions, pin);
 }
 
+// ==================== PIN Brute-force Protection ====================
+
+let failedPinAttempts = 0;
+let lockedUntil = 0;
+let lockoutLoaded = false;
+
+const LOCKOUT_THRESHOLDS = [
+  { attempts: 3, lockSeconds: 15 },
+  { attempts: 5, lockSeconds: 60 },
+  { attempts: 8, lockSeconds: 300 },
+  { attempts: 12, lockSeconds: 900 },
+];
+
+/**
+ * Load lockout state from IDB (once). Survives page refresh.
+ */
+async function loadLockoutState(): Promise<void> {
+  if (lockoutLoaded) return;
+  lockoutLoaded = true;
+  try {
+    const state = await get<{ attempts: number; lockedUntil: number }>(STORAGE_KEYS.LOCKOUT);
+    if (state) {
+      failedPinAttempts = state.attempts;
+      lockedUntil = state.lockedUntil;
+    }
+  } catch {
+    // ignore
+  }
+}
+
+async function persistLockoutState(): Promise<void> {
+  try {
+    await set(STORAGE_KEYS.LOCKOUT, { attempts: failedPinAttempts, lockedUntil });
+  } catch {
+    // ignore
+  }
+}
+
+async function checkPinLockout(): Promise<void> {
+  await loadLockoutState();
+  if (lockedUntil > Date.now()) {
+    const remaining = Math.ceil((lockedUntil - Date.now()) / 1000);
+    throw new Error(`Too many attempts. Try again in ${remaining}s`);
+  }
+}
+
+async function recordPinFailure(): Promise<void> {
+  failedPinAttempts++;
+  for (let i = LOCKOUT_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (failedPinAttempts >= LOCKOUT_THRESHOLDS[i].attempts) {
+      lockedUntil = Date.now() + LOCKOUT_THRESHOLDS[i].lockSeconds * 1000;
+      break;
+    }
+  }
+  await persistLockoutState();
+}
+
+async function resetPinFailures(): Promise<void> {
+  failedPinAttempts = 0;
+  lockedUntil = 0;
+  await persistLockoutState();
+}
+
+// ==================== Hidden Chat PIN Hashing ====================
+
+/**
+ * Хеширует PIN скрытых чатов через PBKDF2. Возвращает "salt:hash" (base64).
+ */
+export async function hashHiddenChatPin(pin: string): Promise<string> {
+  const salt = nacl.randomBytes(16);
+  const key = await deriveKeyFromPin(pin, salt);
+  return `${encodeBase64(salt)}:${encodeBase64(key)}`;
+}
+
+/**
+ * Проверяет PIN скрытых чатов против сохранённого хеша "salt:hash".
+ * Uses constant-time comparison to prevent timing attacks.
+ */
+export async function verifyHiddenChatPin(
+  input: string,
+  storedHash: string,
+): Promise<boolean> {
+  const parts = storedHash.split(':');
+  if (parts.length !== 2) return false;
+  const salt = decodeBase64(parts[0]);
+  const expectedBytes = decodeBase64(parts[1]);
+  const derivedBytes = await deriveKeyFromPin(input, salt);
+
+  // Constant-time comparison (XOR accumulator)
+  if (expectedBytes.length !== derivedBytes.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expectedBytes.length; i++) {
+    diff |= expectedBytes[i] ^ derivedBytes[i];
+  }
+  return diff === 0;
+}
+
 // ==================== Настройки ====================
 
 export interface Settings {
@@ -421,7 +527,8 @@ export interface Settings {
   notifications: boolean;
   selfDestructDefault: number | null;
   hiddenChatsEnabled: boolean;
-  hiddenChatPin?: string;
+  /** Hashed hidden chat PIN ("salt:hash" format) — never stored in plaintext */
+  hiddenChatPinHash?: string;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -432,18 +539,35 @@ const DEFAULT_SETTINGS: Settings = {
 };
 
 /**
- * Сохраняет настройки
+ * Сохраняет настройки.
+ * The hiddenChatPinHash is stored separately (encrypted with master PIN) for defense-in-depth.
+ * Non-sensitive fields (theme, notifications, etc.) stay plaintext so they can be read pre-auth.
  */
 export async function saveSettings(settings: Settings): Promise<void> {
-  await set(STORAGE_KEYS.SETTINGS, settings);
+  // Strip hiddenChatPinHash from plaintext store
+  const { hiddenChatPinHash, ...safeSettings } = settings;
+  await set(STORAGE_KEYS.SETTINGS, safeSettings);
+
+  // If hiddenChatPinHash is explicitly set (even to undefined), persist to encrypted store
+  if (hiddenChatPinHash !== undefined) {
+    await set(STORAGE_KEYS.HIDDEN_CHAT_PIN, hiddenChatPinHash);
+  }
 }
 
 /**
- * Загружает настройки
+ * Загружает настройки.
+ * Merges the encrypted hiddenChatPinHash back into the Settings object.
  */
 export async function loadSettings(): Promise<Settings> {
   const settings = await get<Settings>(STORAGE_KEYS.SETTINGS);
-  return settings || DEFAULT_SETTINGS;
+  const base = settings || DEFAULT_SETTINGS;
+
+  // Merge hidden chat PIN hash from separate store
+  const hiddenChatPinHash = await get<string>(STORAGE_KEYS.HIDDEN_CHAT_PIN);
+  if (hiddenChatPinHash) {
+    return { ...base, hiddenChatPinHash };
+  }
+  return base;
 }
 
 // ==================== Panic Mode ====================
@@ -487,6 +611,52 @@ export async function deleteContact(
   await saveContacts(filtered, pin);
 
   await deleteRatchetSession(contactId, pin);
+}
+
+// ==================== Change PIN ====================
+
+/**
+ * Меняет PIN-код: расшифровывает все данные старым PIN, перешифровывает новым.
+ * Выбрасывает ошибку если старый PIN неверный.
+ */
+export async function changePin(oldPin: string, newPin: string): Promise<void> {
+  // Brute-force lockout check
+  await checkPinLockout();
+
+  // Verify old PIN by attempting to load identity keys
+  const identity = await loadIdentityKeys(oldPin);
+  if (!identity) {
+    await recordPinFailure();
+    throw new Error('Invalid current PIN');
+  }
+
+  // PIN verified — reset lockout counter
+  await resetPinFailures();
+
+  // Load all encrypted data with old PIN
+  const contacts = await loadContacts(oldPin);
+  const chats = await loadChats(oldPin);
+  const sessions = await loadRatchetSessions(oldPin);
+  const prekeys = await loadPreKeyMaterial(oldPin);
+
+  // Generate a new encryption salt for v2 master key
+  const newSalt = nacl.randomBytes(16);
+  const newMasterKey = await deriveKeyFromPin(newPin, newSalt);
+
+  // Store the new salt (used by v2 encrypt/decrypt)
+  await set(STORAGE_KEYS.ENCRYPTION_SALT, encodeBase64(newSalt));
+
+  // Clear cached master key so encryptForStorage picks up the new one
+  cachedMasterKey = { pin: newPin, saltB64: encodeBase64(newSalt), key: newMasterKey };
+
+  // Re-save everything with new PIN (new master key)
+  await saveIdentityKeys(identity, newPin);
+  await saveContacts(contacts, newPin);
+  await saveChats(chats, newPin);
+  await saveRatchetSessions(sessions, newPin);
+  if (prekeys) {
+    await savePreKeyMaterial(prekeys, newPin);
+  }
 }
 
 // ==================== Backup / Restore ====================
