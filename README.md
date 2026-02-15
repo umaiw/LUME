@@ -1,168 +1,106 @@
 # LUME
 
-Secure end-to-end encrypted messaging platform with WebSocket real-time communication.
+E2EE messenger — Next.js 16 + Express + WebSocket + SQLite + TweetNaCl
 
-## 🏗️ Architecture
+## Stack
 
-- **Client**: Next.js 16 + React 19 + TypeScript + TailwindCSS
-- **Server**: Express + WebSocket + SQLite + JWT Authentication
-- **Security**: E2E encryption with TweetNaCl, QR code device pairing
+| Layer | Tech |
+|-------|------|
+| Client | Next.js 16, React 19, TailwindCSS 4, Zustand 5, TweetNaCl |
+| Server | Express 4, WebSocket (ws 8), better-sqlite3, JWT |
+| CI/CD | GitHub Actions (6 jobs), Dependabot, Docker |
+| Infra | Fly.io (server), TBD (client) |
 
-## 📁 Project Structure
+## Structure
 
 ```
-LUME/
-├── client/          # Next.js frontend application
-│   ├── src/         # Source code
-│   ├── public/      # Static assets
-│   └── scripts/     # Build scripts
-├── server/          # Express + WebSocket backend
-│   ├── src/         # Source code
-│   ├── test/        # Vitest tests
-│   └── data/        # SQLite database (gitignored)
-└── DESIGN/          # Logo and branding assets
+client/src/          — Next.js app, components, crypto, hooks, stores
+server/src/          — Express routes, WebSocket handler, SQLite DB
+server/test/         — Vitest tests (unit + integration)
+.github/workflows/   — CI, deploy-server, deploy-client, dependabot
 ```
 
-## 🚀 Getting Started
+## Dev Setup
 
-### Prerequisites
-
-- Node.js 20+
-- npm
-
-### Installation
-
-#### Server Setup
-```bash
-cd server
-npm install
-cp .env.example .env
-# Edit .env with your configuration
-npm run dev
-```
-
-#### Client Setup
-```bash
-cd client
-npm install
-cp .env.local.example .env.local
-# Edit .env.local with your configuration
-npm run dev
-```
-
-## 🧪 Testing
-
-### Server Tests
-```bash
-cd server
-npm run test          # Run tests once
-npm run test:watch    # Watch mode
-```
-
-### Linting
 ```bash
 # Server
-cd server
-npm run lint
-npm run format:check
+cd server && npm i && cp .env.example .env && npm run dev   # :3001
 
 # Client
-cd client
-npm run lint
+cd client && npm i && npm run dev                            # :3000
 ```
 
-## 🏭 Production Build
+## CI Status
 
-### Server
-```bash
-cd server
-npm run build
-npm start
-```
+6 parallel jobs: Server Lint/Typecheck, Server Tests, Server Build, Client Lint, Client Build, Docker Build
 
-### Client
-```bash
-cd client
-npm run build
-npm start
-```
+---
 
-## 🐳 Docker Deployment
+## Changelog
 
-### Build & Run Server
-```bash
-cd server
-docker build -t lume-server .
-docker run -p 3001:3001 -v lume_data:/app/data lume-server
-```
+### `9cf6b40` — 2026-02-15 (patch)
+**fix: TS2556 spread in getUsersByIds, fix integration test self-bundle block**
+- `server/src/db/database.ts` — fixed TypeScript spread argument error in cached `getUsersByIds` prepared statements
+- `server/test/flow.integration.test.ts` — integration test was requesting own bundle (Bob→Bob), fixed to Alice→Bob to match self-request block logic
 
-## ☁️ Fly.io Deployment
+### `9538bcc` — 2026-02-15 (bugs + refactor)
+**fix: bugs, refactor duplicated code, remove dead code**
 
-### Prerequisites
-- Install Fly CLI: `https://fly.io/docs/hands-on/install-flyctl/`
-- Login: `fly auth login`
+Server:
+- `server/src/routes/auth.ts` — prekey exhaustion protection: dedicated `bundleRateLimit` (10 req/min), self-request block on `/auth/bundle`, audit logging for bundle consumption
+- `server/src/db/database.ts` — cached `getUsersByIds` prepared statements by arity (was re-preparing every call), migration error logging when `LOG_SECURITY=1`
 
-### Deploy Server
-```bash
-cd server
-fly launch  # First time only
-fly deploy  # Subsequent deploys
-```
+Client:
+- `client/src/app/chat/[id]/page.tsx` — pass `onOpenBackup` to LeftRail (backup button was broken), added full Backup modal, smart auto-scroll (only when user is within 120px of bottom)
+- `client/src/app/chats/page.tsx` — moved auth redirect from render phase to `useEffect`, extracted shared hooks
+- `client/src/app/layout.tsx` — `lang="ru"` → `lang="en"`
+- `client/src/app/setup/page.tsx` — 400ms debounce on username availability check
+- `client/src/app/unlock/page.tsx` — auto-re-register now shows warning dialog instead of silent action
+- `client/src/hooks/useContactActions.ts` — **new** shared hook (add-contact + open-chat logic)
+- `client/src/hooks/usePanic.ts` — **new** shared hook (panic wipe logic)
+- `client/src/crypto/keys.ts` — removed dead `ed25519ToX25519PublicKey` stub
+- `client/src/crypto/storage.ts` — removed unused `verifyPin`
 
-### Environment Variables
-Set secrets in Fly.io:
-```bash
-fly secrets set JWT_SECRET=your-secret-here
-fly secrets set ALLOWED_ORIGINS=https://your-client-domain.com
-```
+11 files changed, +1648 / −999
 
-## 🔐 Environment Variables
+### `51fb4e6` — 2026-02-15 (style)
+**style: format server code with Prettier & add .gitattributes**
+- Auto-formatted all server code with Prettier
+- Added `.gitattributes` for consistent line endings (`lf`)
 
-### Server (.env)
-```env
-PORT=3001
-JWT_SECRET=your-jwt-secret-key
-ALLOWED_ORIGINS=http://localhost:3000,https://your-production-domain.com
-NODE_ENV=development
-DB_PATH=./data/lume.db
-```
+### `a537b85` — 2026-02-15 (fix)
+**fix: add NodeJS global to ESLint config**
 
-### Client (.env.local)
-```env
-NEXT_PUBLIC_WS_URL=ws://localhost:3001
-NEXT_PUBLIC_API_URL=http://localhost:3001
-```
+### `f766df3` — 2026-02-15 (fix)
+**fix: add Node.js globals to ESLint config, disable no-console**
 
-## 📝 Scripts
+### `3bccaa3` — 2026-02-15 (fix)
+**fix: simplify ESLint config for v9 compatibility**
 
-### Server
-- `npm run dev` - Development server with hot reload
-- `npm run build` - TypeScript compilation
-- `npm run start` - Production server
-- `npm run lint` - ESLint check
-- `npm run lint:fix` - Auto-fix linting issues
-- `npm run format` - Format code with Prettier
-- `npm run test` - Run tests
+### `f220869` — 2026-02-15 (fix)
+**fix: migrate server ESLint to flat config (v9)**
+- Migrated from legacy `.eslintrc` to `eslint.config.mjs` flat config format
 
-### Client
-- `npm run dev` - Next.js dev server
-- `npm run build` - Production build
-- `npm run start` - Production server
-- `npm run lint` - ESLint check
+### `399891d` — 2026-02-15 (fix)
+**fix: resolve build errors for CI**
 
-## 🛡️ Security Features
+### `d1890e6` — 2026-02-15 (fix)
+**fix: add missing deps (supertest, typescript) & regenerate lock files**
 
-- End-to-end encryption with TweetNaCl
-- JWT-based authentication
-- Rate limiting
-- Helmet security headers
-- CORS protection
-- QR code device pairing
+### `2831d86` — 2026-02-14 (init)
+**feat: initial project setup**
+- Full client + server codebase
+- GitHub repo created (`rekonov/LUME`, private)
+- CI/CD: `ci.yml` (6 jobs), `deploy-server.yml`, `deploy-client.yml`, `dependabot.yml`
+- Docker: `server/Dockerfile`, `server/fly.toml`
 
-## 📄 License
+---
 
-Private project - All rights reserved
+## Known Issues
 
-## 🤝 Contributing
+- `deploy-server.yml` / `deploy-client.yml` — trigger on push but no secrets configured yet (Fly.io token, hosting)
+- Dependabot PRs accumulating — need periodic merge
 
-This is a private project. Contact the maintainer for access.
+## License
+
+Private — All rights reserved
