@@ -215,6 +215,16 @@ router.post(
         return;
       }
 
+      // If the recipient has blocked the sender, silently accept
+      // (don't leak the block status to the sender)
+      if (database.isBlocked(recipient.id, senderId)) {
+        res.status(201).json({
+          messageId: uuidv4(),
+          delivered: false,
+        });
+        return;
+      }
+
       const messageId = uuidv4();
       database.queueMessage(
         messageId,

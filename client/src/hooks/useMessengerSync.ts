@@ -6,7 +6,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { authApi, messagesApi } from '@/lib/api';
 import { wsClient } from '@/lib/websocket';
 import { notifyIncomingMessage } from '@/lib/notifications';
-import { useAuthStore, useContactsStore, useChatsStore, useSessionsStore, useUIStore } from '@/stores';
+import { playMessageSound, initSoundPreference } from '@/lib/sounds';
+import { useAuthStore, useContactsStore, useChatsStore, useSessionsStore, useUIStore, useBlockedStore } from '@/stores';
 import {
   loadChats,
   loadContacts,
@@ -34,6 +35,21 @@ import { generateExchangeKeyPair, type KeyPair } from '@/crypto/keys';
 
 function reportCryptoIssue(message: string) {
   useUIStore.getState().setCryptoBanner({ level: 'warning', message });
+}
+
+function loadBlockedIds(): string[] {
+  try {
+    const raw = localStorage.getItem('lume:blocked');
+    if (raw) return JSON.parse(raw) as string[];
+  } catch { /* ignore */ }
+  return [];
+}
+
+function saveBlockedIds(): void {
+  try {
+    const ids = Object.keys(useBlockedStore.getState().blockedIds);
+    localStorage.setItem('lume:blocked', JSON.stringify(ids));
+  } catch { /* ignore */ }
 }
 
 const PREKEY_LOW_THRESHOLD = 10;
@@ -132,6 +148,8 @@ async function appendIncomingMessage(params: {
   const identityKeys = useAuthStore.getState().identityKeys;
   if (!identityKeys) return false;
 
+  const isBlockedSender = !!useBlockedStore.getState().blockedIds[senderId];
+
   const ratchetEnvelope = parseRatchetEnvelope(encryptedPayload);
 
   const contactForMessage = await ensureContact({ senderId, senderUsername, encryptedPayload, pin });
@@ -140,6 +158,7 @@ async function appendIncomingMessage(params: {
   let content = '[Unable to decrypt message]';
   let timestamp = fallbackTimestamp;
   let selfDestructSeconds: number | null | undefined = null;
+  let replyTo: { messageId: string; content: string; senderId: string } | undefined;
 
   if (ratchetEnvelope) {
     // v2: X3DH + Double Ratchet (lume-ratchet)
@@ -209,6 +228,7 @@ async function appendIncomingMessage(params: {
         content?: unknown;
         timestamp?: unknown;
         selfDestruct?: unknown;
+        replyTo?: unknown;
       };
       if (typeof decoded.content === 'string') {
         content = decoded.content;
@@ -222,6 +242,13 @@ async function appendIncomingMessage(params: {
         selfDestructSeconds = decoded.selfDestruct as number | null;
       } else {
         selfDestructSeconds = ratchetEnvelope.selfDestruct ?? null;
+      }
+      // Parse reply reference
+      if (decoded.replyTo && typeof decoded.replyTo === 'object') {
+        const rt = decoded.replyTo as Record<string, unknown>;
+        if (typeof rt.messageId === 'string' && typeof rt.content === 'string' && typeof rt.senderId === 'string') {
+          replyTo = { messageId: rt.messageId, content: rt.content, senderId: rt.senderId };
+        }
       }
     } catch {
       timestamp = ratchetEnvelope.timestamp ?? fallbackTimestamp;
@@ -246,6 +273,10 @@ async function appendIncomingMessage(params: {
     timestamp = decoded?.timestamp ?? fallbackTimestamp;
     selfDestructSeconds = decoded?.selfDestruct ?? null;
   }
+
+  // Blocked contacts: ratchet was advanced above to stay in sync,
+  // but we silently discard the message (no chat entry, no notification).
+  if (isBlockedSender) return true;
 
   const allChats = useChatsStore.getState().chats;
   let targetChat = allChats.find((c) => c.contactId === senderId);
@@ -276,6 +307,7 @@ async function appendIncomingMessage(params: {
     timestamp,
     status: 'delivered',
     selfDestructAt: selfDestructSeconds ? timestamp + selfDestructSeconds * 1000 : undefined,
+    replyTo,
   });
 
   return true;
@@ -456,6 +488,15 @@ export function useMessengerSync() {
     void loadLocalChats();
     void loadLocalSessions();
     void connectWs();
+    initSoundPreference();
+    useBlockedStore.getState().setBlockedIds(loadBlockedIds());
+
+    // Persist blocked IDs on change
+    const unsubscribeBlocked = useBlockedStore.subscribe((state, prev) => {
+      if (state.blockedIds !== prev.blockedIds) {
+        saveBlockedIds();
+      }
+    });
 
     wsClient.setTokenExpireHandler(async () => {
       try {
@@ -474,6 +515,7 @@ export function useMessengerSync() {
       unsubscribeChats();
       unsubscribeContacts();
       unsubscribeSessions();
+      unsubscribeBlocked();
 
       // Flush any pending debounced writes before unmounting
       if (saveChatsTimer) {
@@ -528,6 +570,7 @@ export function useMessengerSync() {
           } else {
             // Notify if the chat is not currently active
             notifyIncomingMessage(data.senderUsername);
+            playMessageSound();
           }
 
           // Replenish OPKs after consuming during X3DH handshakes

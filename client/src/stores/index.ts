@@ -343,3 +343,41 @@ export const useTypingStore = create<TypingState>()((set) => ({
 
     clearAll: () => set({ typingUsers: {} }),
 }));
+
+// ==================== Blocked Store ====================
+
+interface BlockedState {
+    /** Map of blocked contact IDs → true */
+    blockedIds: Record<string, true>;
+
+    setBlockedIds: (ids: string[]) => void;
+    addBlocked: (id: string) => void;
+    removeBlocked: (id: string) => void;
+    isBlocked: (id: string) => boolean;
+}
+
+export const useBlockedStore = create<BlockedState>()((set, get) => ({
+    blockedIds: {},
+
+    setBlockedIds: (ids) => {
+        const map: Record<string, true> = {};
+        for (const id of ids) map[id] = true;
+        set({ blockedIds: map });
+    },
+
+    addBlocked: (id) =>
+        set((state) => {
+            if (state.blockedIds[id]) return state;
+            return { blockedIds: { ...state.blockedIds, [id]: true } };
+        }),
+
+    removeBlocked: (id) =>
+        set((state) => {
+            if (!state.blockedIds[id]) return state;
+            const next = { ...state.blockedIds };
+            delete next[id];
+            return { blockedIds: next };
+        }),
+
+    isBlocked: (id) => !!get().blockedIds[id],
+}));

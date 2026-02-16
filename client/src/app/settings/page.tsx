@@ -21,6 +21,7 @@ import {
   type Settings,
 } from "@/crypto/storage";
 import { applyTheme } from "@/lib/theme";
+import { setSoundEnabled, isSoundEnabled } from "@/lib/sounds";
 
 /* ──────────── Self-destruct timer options ──────────── */
 const SELF_DESTRUCT_OPTIONS: { label: string; value: number | null }[] = [
@@ -142,6 +143,7 @@ export default function SettingsPage() {
   /* ── settings state ── */
   const [settings, setSettingsState] = useState<Settings | null>(null);
   const [saveFlash, setSaveFlash] = useState(false);
+  const [soundOn, setSoundOn] = useState(true);
 
   /* ── change PIN modal ── */
   const [showPinModal, setShowPinModal] = useState(false);
@@ -167,6 +169,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (hydrated && isAuthenticated) {
       loadSettings().then(setSettingsState);
+      setSoundOn(isSoundEnabled());
     }
   }, [hydrated, isAuthenticated]);
 
@@ -314,6 +317,15 @@ export default function SettingsPage() {
             description="Show a notification when a new message arrives"
             checked={settings.notifications}
             onChange={(v) => updateSetting("notifications", v)}
+          />
+          <ToggleRow
+            label="Sound"
+            description="Play a chime when a new message arrives"
+            checked={soundOn}
+            onChange={(v) => {
+              setSoundOn(v);
+              setSoundEnabled(v);
+            }}
           />
         </section>
 

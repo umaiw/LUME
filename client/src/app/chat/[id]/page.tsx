@@ -23,8 +23,8 @@ import {
   useSessionsStore,
   useUIStore,
   useTypingStore,
+  useBlockedStore,
   type Message,
-  type MessageReplyRef,
 } from "@/stores";
 import { authApi, messagesApi } from "@/lib/api";
 import { wsClient } from "@/lib/websocket";
@@ -127,10 +127,14 @@ function MessageBubble({
   message,
   isMine,
   onDelete,
+  onReply,
+  replyAuthorName,
 }: {
   message: Message;
   isMine: boolean;
   onDelete: (messageId: string) => void;
+  onReply: (message: Message) => void;
+  replyAuthorName?: string;
 }) {
   const [showActions, setShowActions] = useState(false);
   const timeLabel = new Date(message.timestamp).toLocaleTimeString("en-US", {
@@ -140,23 +144,46 @@ function MessageBubble({
 
   return (
     <div className={`group flex ${isMine ? "justify-end" : "justify-start"}`}>
-      {/* Delete button — appears on hover (left of own messages) */}
+      {/* Action buttons — left of own messages */}
       {isMine && (
-        <button
-          type="button"
-          onClick={() => setShowActions(!showActions)}
-          className="self-center mr-2 opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity p-1"
-          title="Delete message"
-        >
-          <svg className="w-4 h-4 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16" />
-          </svg>
-        </button>
+        <div className="self-center mr-2 flex items-center gap-1 opacity-0 group-hover:opacity-60 transition-opacity">
+          <button
+            type="button"
+            onClick={() => onReply(message)}
+            className="hover:!opacity-100 p-1"
+            title="Reply"
+          >
+            <svg className="w-4 h-4 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10l7-7m0 0v14m0-14h4a8 8 0 018 8v5" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowActions(!showActions)}
+            className="hover:!opacity-100 p-1"
+            title="Delete message"
+          >
+            <svg className="w-4 h-4 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
       )}
-      <div className="relative">
+      <div className="relative max-w-[78%]">
         <div
-          className={`max-w-[78%] px-4 py-2.5 ${isMine ? "message-bubble-sent" : "message-bubble-received"}`}
+          className={`px-4 py-2.5 ${isMine ? "message-bubble-sent" : "message-bubble-received"}`}
         >
+          {/* Reply preview */}
+          {message.replyTo && (
+            <div className="mb-2 pl-3 border-l-2 border-[var(--accent)]/60 rounded-sm">
+              <p className="text-[11px] font-semibold text-[var(--accent)] uppercase tracking-[0.06em] mb-0.5 truncate">
+                {replyAuthorName || 'Unknown'}
+              </p>
+              <p className="text-[12px] text-[var(--text-secondary)] truncate leading-snug">
+                {message.replyTo.content.length > 80 ? message.replyTo.content.slice(0, 80) + '…' : message.replyTo.content}
+              </p>
+            </div>
+          )}
           <p className="break-words text-[15px] leading-relaxed">
             {message.content}
           </p>
@@ -214,18 +241,30 @@ function MessageBubble({
           </div>
         )}
       </div>
-      {/* Delete button — appears on hover (right of received messages) */}
+      {/* Action buttons — right of received messages */}
       {!isMine && (
-        <button
-          type="button"
-          onClick={() => setShowActions(!showActions)}
-          className="self-center ml-2 opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity p-1"
-          title="Delete message"
-        >
-          <svg className="w-4 h-4 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16" />
-          </svg>
-        </button>
+        <div className="self-center ml-2 flex items-center gap-1 opacity-0 group-hover:opacity-60 transition-opacity">
+          <button
+            type="button"
+            onClick={() => onReply(message)}
+            className="hover:!opacity-100 p-1"
+            title="Reply"
+          >
+            <svg className="w-4 h-4 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10l7-7m0 0v14m0-14h4a8 8 0 018 8v5" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowActions(!showActions)}
+            className="hover:!opacity-100 p-1"
+            title="Delete message"
+          >
+            <svg className="w-4 h-4 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
       )}
     </div>
   );
@@ -241,6 +280,7 @@ const MessageBubbleMemo = memo(
     prev.message.timestamp === next.message.timestamp &&
     prev.message.selfDestructAt === next.message.selfDestructAt &&
     prev.message.replyTo?.messageId === next.message.replyTo?.messageId &&
+    prev.replyAuthorName === next.replyAuthorName &&
     prev.onDelete === next.onDelete &&
     prev.onReply === next.onReply,
 );
@@ -300,6 +340,12 @@ export default function ChatPage({ params }: ChatPageProps) {
   const [showProfile, setShowProfile] = useState(false);
   const [copiedSafety, setCopiedSafety] = useState(false);
   const [showDeleteContact, setShowDeleteContact] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [blockLoading, setBlockLoading] = useState(false);
+
+  const isContactBlocked = useBlockedStore((s) =>
+    contactId ? !!s.blockedIds[contactId] : false,
+  );
 
   const chat = chats.find((c) => c.id === chatId);
   const contact = contacts.find((c) => c.id === chat?.contactId);
@@ -431,6 +477,13 @@ export default function ChatPage({ params }: ChatPageProps) {
     [chatId, deleteMessage],
   );
 
+  const handleReply = useCallback(
+    (message: Message) => {
+      setReplyingTo(message);
+    },
+    [],
+  );
+
   const handleSend = async () => {
     if (!messageText.trim() || !contact || !userId || !identityKeys) return;
 
@@ -451,16 +504,24 @@ export default function ChatPage({ params }: ChatPageProps) {
       selfDestructAt: selfDestructTime
         ? timestamp + selfDestructTime * 1000
         : undefined,
+      replyTo: replyingTo
+        ? { messageId: replyingTo.id, content: replyingTo.content, senderId: replyingTo.senderId }
+        : undefined,
     };
 
     addMessage(chatId, message);
     setMessageText("");
+    setReplyingTo(null);
 
     try {
+      const replyRef = replyingTo
+        ? { messageId: replyingTo.id, content: replyingTo.content.slice(0, 200), senderId: replyingTo.senderId }
+        : undefined;
       const plaintext = JSON.stringify({
         content: outgoingText,
         timestamp,
         selfDestruct: selfDestructTime ?? null,
+        ...(replyRef ? { replyTo: replyRef } : {}),
       });
       const plaintextBytes = new TextEncoder().encode(plaintext);
 
@@ -785,20 +846,55 @@ export default function ChatPage({ params }: ChatPageProps) {
           </div>
         ) : (
           <>
-            {chat.messages.map((m) => (
-              <MessageBubbleMemo
-                key={m.id}
-                message={m}
-                isMine={m.senderId === userId}
-                onDelete={handleDeleteMessage}
-              />
-            ))}
+            {chat.messages.map((m) => {
+              let replyAuthorName: string | undefined;
+              if (m.replyTo) {
+                if (m.replyTo.senderId === userId) {
+                  replyAuthorName = 'You';
+                } else {
+                  replyAuthorName = contacts.find((c) => c.id === m.replyTo!.senderId)?.username || 'Unknown';
+                }
+              }
+              return (
+                <MessageBubbleMemo
+                  key={m.id}
+                  message={m}
+                  isMine={m.senderId === userId}
+                  onDelete={handleDeleteMessage}
+                  onReply={handleReply}
+                  replyAuthorName={replyAuthorName}
+                />
+              );
+            })}
             <div ref={messagesEndRef} />
           </>
         )}
       </main>
 
       <footer className="px-5 sm:px-6 py-4 border-t border-[var(--border)]/70">
+        {/* Reply bar */}
+        {replyingTo && (
+          <div className="mb-3 flex items-start gap-3 px-4 py-2.5 rounded-[var(--radius-md)] bg-[var(--surface-alt)] border border-[var(--border)]">
+            <div className="flex-1 min-w-0 pl-3 border-l-2 border-[var(--accent)]">
+              <p className="text-[11px] font-semibold text-[var(--accent)] uppercase tracking-[0.06em] mb-0.5">
+                {replyingTo.senderId === userId ? 'You' : (contact?.username || 'Unknown')}
+              </p>
+              <p className="text-[12px] text-[var(--text-secondary)] truncate">
+                {replyingTo.content.length > 100 ? replyingTo.content.slice(0, 100) + '…' : replyingTo.content}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplyingTo(null)}
+              className="flex-shrink-0 p-1 rounded-full hover:bg-[var(--surface-strong)] transition-colors"
+              aria-label="Cancel reply"
+            >
+              <svg className="w-4 h-4 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
         <div className="flex items-end gap-3">
           <div className="flex-1">
             <textarea
@@ -992,6 +1088,36 @@ export default function ChatPage({ params }: ChatPageProps) {
               </p>
             </div>
           ) : null}
+
+          {/* Block / Unblock Contact */}
+          <button
+            type="button"
+            disabled={blockLoading}
+            className={`mt-6 w-full py-3 rounded-full border text-[12px] font-semibold uppercase tracking-[0.08em] transition-colors disabled:opacity-60 ${
+              isContactBlocked
+                ? 'border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-alt)]'
+                : 'border-orange-500/30 text-orange-400 hover:bg-orange-500/10'
+            }`}
+            onClick={async () => {
+              if (!contactId || !identityKeys) return;
+              setBlockLoading(true);
+              try {
+                if (isContactBlocked) {
+                  await authApi.unblockUser(contactId, identityKeys);
+                  useBlockedStore.getState().removeBlocked(contactId);
+                } else {
+                  await authApi.blockUser(contactId, identityKeys);
+                  useBlockedStore.getState().addBlocked(contactId);
+                }
+              } catch {
+                // Best effort — local state still toggles
+              } finally {
+                setBlockLoading(false);
+              }
+            }}
+          >
+            {blockLoading ? 'Processing…' : isContactBlocked ? 'Unblock Contact' : 'Block Contact'}
+          </button>
 
           {/* Delete Contact */}
           {!showDeleteContact ? (
