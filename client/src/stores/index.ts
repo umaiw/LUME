@@ -113,6 +113,12 @@ export const useSessionsStore = create<SessionsState>()((set) => ({
 
 // ==================== Chat Store ====================
 
+export interface MessageReplyRef {
+    messageId: string;
+    content: string;
+    senderId: string;
+}
+
 export interface Message {
     id: string;
     chatId: string;
@@ -123,6 +129,7 @@ export interface Message {
     status: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
     selfDestructAt?: number;
     isDeleted?: boolean;
+    replyTo?: MessageReplyRef;
 }
 
 export interface Chat {
@@ -205,11 +212,15 @@ export const useChatsStore = create<ChatsState>()(
             })),
 
         markAsRead: (chatId) =>
-            set((state) => ({
-                chats: state.chats.map((chat) =>
-                    chat.id === chatId ? { ...chat, unreadCount: 0 } : chat
-                ),
-            })),
+            set((state) => {
+                const target = state.chats.find((c) => c.id === chatId);
+                if (!target || target.unreadCount === 0) return state;
+                return {
+                    chats: state.chats.map((chat) =>
+                        chat.id === chatId ? { ...chat, unreadCount: 0 } : chat
+                    ),
+                };
+            }),
 
         deleteMessage: (chatId, messageId) =>
             set((state) => ({

@@ -24,6 +24,7 @@ import {
   useUIStore,
   useTypingStore,
   type Message,
+  type MessageReplyRef,
 } from "@/stores";
 import { authApi, messagesApi } from "@/lib/api";
 import { wsClient } from "@/lib/websocket";
@@ -239,7 +240,9 @@ const MessageBubbleMemo = memo(
     prev.message.content === next.message.content &&
     prev.message.timestamp === next.message.timestamp &&
     prev.message.selfDestructAt === next.message.selfDestructAt &&
-    prev.onDelete === next.onDelete,
+    prev.message.replyTo?.messageId === next.message.replyTo?.messageId &&
+    prev.onDelete === next.onDelete &&
+    prev.onReply === next.onReply,
 );
 
 export default function ChatPage({ params }: ChatPageProps) {
@@ -315,13 +318,15 @@ export default function ChatPage({ params }: ChatPageProps) {
       : null;
 
   useEffect(() => {
-    if (hydrated) {
-      setActiveChat(chatId);
-      markAsRead(chatId);
+    if (!hydrated) return;
+    setActiveChat(chatId);
+    markAsRead(chatId);
 
-      // Send read receipts for unread messages from the contact
-      if (chat && contactId) {
-        const unreadFromContact = chat.messages.filter(
+    // Send read receipts for unread messages from the contact
+    if (contactId) {
+      const currentChat = useChatsStore.getState().chats.find((c) => c.id === chatId);
+      if (currentChat) {
+        const unreadFromContact = currentChat.messages.filter(
           (m) => m.senderId === contactId && m.status !== 'read',
         );
         if (unreadFromContact.length > 0) {
@@ -332,7 +337,7 @@ export default function ChatPage({ params }: ChatPageProps) {
         }
       }
     }
-  }, [hydrated, chatId, markAsRead, setActiveChat, chat, contactId]);
+  }, [hydrated, chatId, contactId, markAsRead, setActiveChat]);
 
   useEffect(() => {
     if (!chat) return;
