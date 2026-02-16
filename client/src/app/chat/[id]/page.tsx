@@ -128,11 +128,13 @@ function MessageBubble({
   isMine,
   onDelete,
   onReply,
+  replyAuthorName,
 }: {
   message: Message;
   isMine: boolean;
   onDelete: (messageId: string) => void;
   onReply: (message: Message) => void;
+  replyAuthorName?: string;
 }) {
   const [showActions, setShowActions] = useState(false);
   const timeLabel = new Date(message.timestamp).toLocaleTimeString("en-US", {
@@ -175,9 +177,7 @@ function MessageBubble({
           {message.replyTo && (
             <div className="mb-2 pl-3 border-l-2 border-[var(--accent)]/60 rounded-sm">
               <p className="text-[11px] font-semibold text-[var(--accent)] uppercase tracking-[0.06em] mb-0.5 truncate">
-                {message.replyTo.senderId === useAuthStore.getState().userId ? 'You' : (
-                  useContactsStore.getState().contacts.find((c) => c.id === message.replyTo!.senderId)?.username || 'Unknown'
-                )}
+                {replyAuthorName || 'Unknown'}
               </p>
               <p className="text-[12px] text-[var(--text-secondary)] truncate leading-snug">
                 {message.replyTo.content.length > 80 ? message.replyTo.content.slice(0, 80) + '…' : message.replyTo.content}
@@ -280,6 +280,7 @@ const MessageBubbleMemo = memo(
     prev.message.timestamp === next.message.timestamp &&
     prev.message.selfDestructAt === next.message.selfDestructAt &&
     prev.message.replyTo?.messageId === next.message.replyTo?.messageId &&
+    prev.replyAuthorName === next.replyAuthorName &&
     prev.onDelete === next.onDelete &&
     prev.onReply === next.onReply,
 );
@@ -845,15 +846,26 @@ export default function ChatPage({ params }: ChatPageProps) {
           </div>
         ) : (
           <>
-            {chat.messages.map((m) => (
-              <MessageBubbleMemo
-                key={m.id}
-                message={m}
-                isMine={m.senderId === userId}
-                onDelete={handleDeleteMessage}
-                onReply={handleReply}
-              />
-            ))}
+            {chat.messages.map((m) => {
+              let replyAuthorName: string | undefined;
+              if (m.replyTo) {
+                if (m.replyTo.senderId === userId) {
+                  replyAuthorName = 'You';
+                } else {
+                  replyAuthorName = contacts.find((c) => c.id === m.replyTo!.senderId)?.username || 'Unknown';
+                }
+              }
+              return (
+                <MessageBubbleMemo
+                  key={m.id}
+                  message={m}
+                  isMine={m.senderId === userId}
+                  onDelete={handleDeleteMessage}
+                  onReply={handleReply}
+                  replyAuthorName={replyAuthorName}
+                />
+              );
+            })}
             <div ref={messagesEndRef} />
           </>
         )}

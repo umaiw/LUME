@@ -274,6 +274,10 @@ async function appendIncomingMessage(params: {
     selfDestructSeconds = decoded?.selfDestruct ?? null;
   }
 
+  // Blocked contacts: ratchet was advanced above to stay in sync,
+  // but we silently discard the message (no chat entry, no notification).
+  if (isBlockedSender) return true;
+
   const allChats = useChatsStore.getState().chats;
   let targetChat = allChats.find((c) => c.contactId === senderId);
   if (!targetChat) {
