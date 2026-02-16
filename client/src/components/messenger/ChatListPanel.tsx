@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { Chat } from '@/stores';
+import { useBlockedStore } from '@/stores';
 import type { Contact } from '@/crypto/storage';
 
 function formatTime(timestamp?: number) {
@@ -26,7 +27,8 @@ function ChatRow({
   onClick: () => void;
 }) {
   const timeLabel = formatTime(chat.lastMessage?.timestamp);
-  const preview = chat.lastMessage?.content || 'Start messaging';
+  const isBlocked = useBlockedStore((s) => !!s.blockedIds[contact.id]);
+  const preview = isBlocked ? 'Blocked' : (chat.lastMessage?.content || 'Start messaging');
 
   return (
     <button

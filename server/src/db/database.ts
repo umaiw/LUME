@@ -67,6 +67,15 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_prekeys_user ON one_time_prekeys(user_id);
   CREATE INDEX IF NOT EXISTS idx_messages_recipient ON pending_messages(recipient_id);
   CREATE INDEX IF NOT EXISTS idx_request_signatures_created_at ON request_signatures(created_at);
+
+  CREATE TABLE IF NOT EXISTS blocked_users (
+    blocker_id TEXT NOT NULL,
+    blocked_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    PRIMARY KEY (blocker_id, blocked_id),
+    FOREIGN KEY (blocker_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (blocked_id) REFERENCES users(id) ON DELETE CASCADE
+  );
 `);
 
 // ==================== Lightweight migrations ====================
@@ -196,6 +205,23 @@ const insertRequestSignature = db.prepare(`
 
 const cleanupOldRequestSignatures = db.prepare(`
   DELETE FROM request_signatures WHERE created_at < ?
+`);
+
+const insertBlock = db.prepare(`
+  INSERT OR IGNORE INTO blocked_users (blocker_id, blocked_id)
+  VALUES (?, ?)
+`);
+
+const removeBlock = db.prepare(`
+  DELETE FROM blocked_users WHERE blocker_id = ? AND blocked_id = ?
+`);
+
+const checkBlocked = db.prepare(`
+  SELECT 1 FROM blocked_users WHERE blocker_id = ? AND blocked_id = ? LIMIT 1
+`);
+
+const getBlockedByUser = db.prepare(`
+  SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
 `);
 
 export interface User {
@@ -381,6 +407,25 @@ export const database = {
       return insertRequestSignature.run(requestHash, identityKey);
     })();
     return result.changes > 0;
+  },
+
+  // ── Blocking ──
+
+  blockUser(blockerId: string, blockedId: string): void {
+    insertBlock.run(blockerId, blockedId);
+  },
+
+  unblockUser(blockerId: string, blockedId: string): void {
+    removeBlock.run(blockerId, blockedId);
+  },
+
+  isBlocked(blockerId: string, blockedId: string): boolean {
+    return !!checkBlocked.get(blockerId, blockedId);
+  },
+
+  getBlockedUsers(userId: string): string[] {
+    const rows = getBlockedByUser.all(userId) as Array<{ blocked_id: string }>;
+    return rows.map((r) => r.blocked_id);
   },
 
   close(): void {

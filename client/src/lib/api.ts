@@ -180,6 +180,26 @@ export const authApi = {
             headers,
         });
     },
+
+    blockUser: (blockedId: string, identityKeys: IdentityKeys) => {
+        const body = { blockedId };
+        const headers = signRequest('POST', '/auth/block', body, identityKeys);
+        return request<{ ok: boolean }>('/auth/block', {
+            method: 'POST',
+            body: JSON.stringify(body),
+            headers,
+        });
+    },
+
+    unblockUser: (blockedId: string, identityKeys: IdentityKeys) => {
+        const body = { blockedId };
+        const headers = signRequest('POST', '/auth/unblock', body, identityKeys);
+        return request<{ ok: boolean }>('/auth/unblock', {
+            method: 'POST',
+            body: JSON.stringify(body),
+            headers,
+        });
+    },
 };
 
 // ==================== Messages API ====================

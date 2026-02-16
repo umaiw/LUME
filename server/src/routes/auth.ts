@@ -567,4 +567,63 @@ router.post(
   },
 );
 
+// === Block / Unblock ========================================================
+
+// POST /auth/block
+router.post("/block", requireSignature, (req: Request, res: Response) => {
+  try {
+    const { blockedId } = req.body as { blockedId: string };
+    if (!isValidUuidLike(blockedId)) {
+      res.status(400).json({ error: "Invalid blockedId" });
+      return;
+    }
+
+    const signer = req.user?.identityKey
+      ? database.getUserByIdentityKey(req.user.identityKey)
+      : undefined;
+    if (!signer) {
+      res.status(403).json({ error: "Unauthorized" });
+      return;
+    }
+
+    if (signer.id === blockedId) {
+      res.status(400).json({ error: "Cannot block yourself" });
+      return;
+    }
+
+    database.blockUser(signer.id, blockedId);
+    audit("block_user", { blockerId: signer.id, blockedId });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Block error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /auth/unblock
+router.post("/unblock", requireSignature, (req: Request, res: Response) => {
+  try {
+    const { blockedId } = req.body as { blockedId: string };
+    if (!isValidUuidLike(blockedId)) {
+      res.status(400).json({ error: "Invalid blockedId" });
+      return;
+    }
+
+    const signer = req.user?.identityKey
+      ? database.getUserByIdentityKey(req.user.identityKey)
+      : undefined;
+    if (!signer) {
+      res.status(403).json({ error: "Unauthorized" });
+      return;
+    }
+
+    database.unblockUser(signer.id, blockedId);
+    audit("unblock_user", { blockerId: signer.id, blockedId });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Unblock error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;
