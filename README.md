@@ -1,5 +1,34 @@
 ## Changelog
 
+### `b39c68d` — 2026-02-16 (feat)
+**feat: reply/quote messages, sound notifications, contact blocking**
+
+Reply/Quote Messages:
+- `client/src/stores/index.ts` — `MessageReplyRef` interface, optional `replyTo` field on `Message`
+- `client/src/app/chat/[id]/page.tsx` — reply button on bubbles, quote block (border-l-2 accent, sender name + truncated text), reply bar above textarea, `replyTo` included in encrypted JSON payload; `MessageBubbleMemo` updated for `replyTo` comparison
+- `client/src/hooks/useMessengerSync.ts` — `appendIncomingMessage` parses `replyTo` from decrypted plaintext
+
+Sound Notifications:
+- `client/src/lib/sounds.ts` — **new** Web Audio API two-tone chime (C5→E5), no external audio file; `playMessageSound()`, `setSoundEnabled()`, `isSoundEnabled()`, `initSoundPreference()`; preference saved in `localStorage('lume:sound')`
+- `client/src/hooks/useMessengerSync.ts` — `playMessageSound()` on incoming message in inactive chat; `initSoundPreference()` on load
+- `client/src/app/settings/page.tsx` — Sound toggle in Notifications section
+
+Contact Blocking (server):
+- `server/src/db/database.ts` — `blocked_users` table (blocker_id, blocked_id), prepared statements, `blockUser()`, `unblockUser()`, `isBlocked()`, `getBlockedUsers()`
+- `server/src/routes/auth.ts` — `POST /auth/block` and `POST /auth/unblock` with `requireSignature`
+- `server/src/routes/messages.ts` — silent drop: if recipient blocked sender, return 201 but don't deliver (doesn't reveal block status)
+
+Contact Blocking (client):
+- `client/src/stores/index.ts` — `useBlockedStore` with `blockedIds: Set<string>`, `addBlocked`, `removeBlocked`, `isBlocked`, `setBlockedIds`
+- `client/src/lib/api.ts` — `authApi.blockUser()`, `authApi.unblockUser()`
+- `client/src/hooks/useMessengerSync.ts` — load/save blocked IDs from localStorage, filter incoming messages from blocked users (ack but ignore)
+- `client/src/app/chat/[id]/page.tsx` — Block/Unblock button in contact profile modal (orange, before Delete Contact)
+- `client/src/components/messenger/ChatListPanel.tsx` — "Blocked" preview instead of last message for blocked contacts
+
+10 files changed, +459 / −27
+
+---
+
 ### `11f02a7` — 2026-02-16 (fix)
 **fix: infinite loop (Maximum update depth exceeded) on chat open**
 
