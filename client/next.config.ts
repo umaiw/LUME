@@ -7,6 +7,11 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const nextConfig: NextConfig = {
   turbopack: {
     root: projectRoot,
+    resolveAlias: {
+      '@noble/hashes/hmac': '@noble/hashes/hmac.js',
+      '@noble/hashes/sha256': '@noble/hashes/sha2.js',
+      '@noble/hashes/hkdf': '@noble/hashes/hkdf.js',
+    },
   },
 
   // Подавляем React DevTools warning в production

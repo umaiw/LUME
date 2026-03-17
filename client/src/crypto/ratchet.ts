@@ -6,9 +6,9 @@
 import nacl from 'tweetnacl';
 import { encodeBase64, decodeBase64 } from 'tweetnacl-util';
 import { generateExchangeKeyPair, verify, type KeyPair } from './keys';
-import { hmac } from '@noble/hashes/hmac';
-import { sha256 } from '@noble/hashes/sha256';
-import { hkdf, extract as hkdfExtract, expand as hkdfExpand } from '@noble/hashes/hkdf';
+import { hmac } from '@noble/hashes/hmac.js';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { hkdf, extract as hkdfExtract, expand as hkdfExpand } from '@noble/hashes/hkdf.js';
 
 // ==================== Константы ====================
 

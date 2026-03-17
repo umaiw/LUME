@@ -16,9 +16,9 @@ import {
   deserializeSession,
   type X3DHBundle,
 } from '@/crypto/ratchet';
-import { hmac } from '@noble/hashes/hmac';
-import { sha256 } from '@noble/hashes/sha256';
-import { hkdf } from '@noble/hashes/hkdf';
+import { hmac } from '@noble/hashes/hmac.js';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { hkdf } from '@noble/hashes/hkdf.js';
 import { generateExchangeKeyPair, generateSigningKeyPair, sign } from '@/crypto/keys';
 import nacl from 'tweetnacl';
 import { decodeBase64, encodeBase64 } from 'tweetnacl-util';
