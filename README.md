@@ -134,7 +134,3 @@ npm run build
 | Language | TypeScript 5 |
 
 ---
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for the full history of changes.
