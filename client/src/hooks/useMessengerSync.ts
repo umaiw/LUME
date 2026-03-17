@@ -229,7 +229,37 @@ async function appendIncomingMessage(params: {
         timestamp?: unknown;
         selfDestruct?: unknown;
         replyTo?: unknown;
+        messageType?: unknown;
+        reaction?: unknown;
       };
+
+      // Handle reaction messages — apply to target message, don't create a bubble
+      if (decoded.messageType === 'reaction' && decoded.reaction && typeof decoded.reaction === 'object') {
+        const rx = decoded.reaction as Record<string, unknown>;
+        if (typeof rx.targetMessageId === 'string' && typeof rx.emoji === 'string') {
+          useSessionsStore.getState().upsertSession(senderId, serializeSession(session));
+          useUIStore.getState().clearCryptoBanner();
+
+          if (isBlockedSender) return true;
+
+          const allChats = useChatsStore.getState().chats;
+          const targetChat = allChats.find((c) => c.contactId === senderId);
+          if (targetChat) {
+            const action = rx.action === 'remove' ? 'remove' : 'add';
+            if (action === 'add') {
+              useChatsStore.getState().addReaction(targetChat.id, rx.targetMessageId, {
+                emoji: rx.emoji,
+                senderId,
+                timestamp: typeof decoded.timestamp === 'number' ? decoded.timestamp : Date.now(),
+              });
+            } else {
+              useChatsStore.getState().removeReaction(targetChat.id, rx.targetMessageId, senderId, rx.emoji);
+            }
+          }
+          return true;
+        }
+      }
+
       if (typeof decoded.content === 'string') {
         content = decoded.content;
       }

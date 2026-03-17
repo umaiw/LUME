@@ -119,6 +119,12 @@ export interface MessageReplyRef {
     senderId: string;
 }
 
+export interface Reaction {
+    emoji: string;
+    senderId: string;
+    timestamp: number;
+}
+
 export interface Message {
     id: string;
     chatId: string;
@@ -130,6 +136,7 @@ export interface Message {
     selfDestructAt?: number;
     isDeleted?: boolean;
     replyTo?: MessageReplyRef;
+    reactions?: Reaction[];
 }
 
 export interface Chat {
@@ -157,6 +164,8 @@ interface ChatsState {
     deleteChat: (chatId: string) => void;
     setSelfDestructTimer: (chatId: string, timer: number | undefined) => void;
     pruneExpiredMessages: (now?: number) => void;
+    addReaction: (chatId: string, messageId: string, reaction: Reaction) => void;
+    removeReaction: (chatId: string, messageId: string, senderId: string, emoji: string) => void;
 }
 
 const MAX_MESSAGES_PER_CHAT = 200;
@@ -266,6 +275,43 @@ export const useChatsStore = create<ChatsState>()(
                         messages: nextMessages,
                         lastMessage,
                         unreadCount: Math.min(chat.unreadCount, nextMessages.length),
+                    };
+                }),
+            })),
+
+        addReaction: (chatId, messageId, reaction) =>
+            set((state) => ({
+                chats: state.chats.map((chat) => {
+                    if (chat.id !== chatId) return chat;
+                    return {
+                        ...chat,
+                        messages: chat.messages.map((msg) => {
+                            if (msg.id !== messageId) return msg;
+                            const existing = msg.reactions || [];
+                            // Replace if same sender+emoji, otherwise append
+                            const duplicate = existing.find(
+                                (r) => r.senderId === reaction.senderId && r.emoji === reaction.emoji
+                            );
+                            if (duplicate) return msg;
+                            return { ...msg, reactions: [...existing, reaction] };
+                        }),
+                    };
+                }),
+            })),
+
+        removeReaction: (chatId, messageId, senderId, emoji) =>
+            set((state) => ({
+                chats: state.chats.map((chat) => {
+                    if (chat.id !== chatId) return chat;
+                    return {
+                        ...chat,
+                        messages: chat.messages.map((msg) => {
+                            if (msg.id !== messageId || !msg.reactions) return msg;
+                            const filtered = msg.reactions.filter(
+                                (r) => !(r.senderId === senderId && r.emoji === emoji)
+                            );
+                            return { ...msg, reactions: filtered.length > 0 ? filtered : undefined };
+                        }),
                     };
                 }),
             })),

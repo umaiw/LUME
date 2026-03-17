@@ -1,9 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { Chat } from '@/stores';
-import { useBlockedStore } from '@/stores';
-import type { Contact } from '@/crypto/storage';
+import { useAuthStore, useBlockedStore, useChatsStore, useUIStore } from '@/stores';
+import { loadSettings, verifyHiddenChatPin, isLegacyHiddenPinHash, hashHiddenChatPin, saveSettings, type Contact } from '@/crypto/storage';
+import { Button, Input, Modal } from '@/components/ui';
 
 function formatTime(timestamp?: number) {
   if (!timestamp) return '';
@@ -20,24 +22,36 @@ function ChatRow({
   contact,
   selected,
   onClick,
+  showHiddenControls,
+  onToggleHidden,
 }: {
   chat: Chat;
   contact: Contact;
   selected: boolean;
   onClick: () => void;
+  showHiddenControls: boolean;
+  onToggleHidden: (chatId: string) => void;
 }) {
   const timeLabel = formatTime(chat.lastMessage?.timestamp);
   const isBlocked = useBlockedStore((s) => !!s.blockedIds[contact.id]);
-  const preview = isBlocked ? 'Blocked' : (chat.lastMessage?.content || 'Start messaging');
+
+  // If searching, show matching message preview instead of last message
+  let preview: string;
+  if (isBlocked) {
+    preview = 'Blocked';
+  } else {
+    preview = chat.lastMessage?.content || 'Start messaging';
+  }
 
   return (
     <button
       type="button"
       onClick={onClick}
       className={`
-        relative w-full px-4 py-3 text-left transition-colors
+        relative w-full px-4 py-3.5 sm:py-3 text-left transition-colors
         border-b border-[var(--border)]/55 last:border-b-0
-        ${selected ? 'bg-[var(--surface-strong)] text-[var(--text-primary)]' : 'hover:bg-[var(--surface-alt)] text-[var(--text-primary)]'}
+        min-h-[56px] sm:min-h-0
+        ${selected ? 'bg-[var(--surface-strong)] text-[var(--text-primary)]' : 'hover:bg-[var(--surface-alt)] active:bg-[var(--surface-strong)] text-[var(--text-primary)]'}
       `}
     >
       {selected ? <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-[var(--accent)]" aria-hidden="true" /> : null}
@@ -67,6 +81,30 @@ function ChatRow({
                 <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--text-muted)]">
                   {timeLabel}
                 </span>
+              ) : null}
+              {showHiddenControls ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleHidden(chat.id);
+                  }}
+                  className="w-6 h-6 rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-alt)] transition-colors inline-flex items-center justify-center"
+                  aria-label={chat.isHidden ? 'Unhide chat' : 'Hide chat'}
+                  title={chat.isHidden ? 'Unhide chat' : 'Hide chat'}
+                >
+                  {chat.isHidden ? (
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M13.875 18.825A10.05 10.05 0 0112 19C7 19 2.73 15.11 1 12c.52-.94 1.19-1.82 1.97-2.62M9.9 4.24A9.96 9.96 0 0112 4c5 0 9.27 3.89 11 8a14.56 14.56 0 01-4.2 4.91M15 12a3 3 0 10-4.24 2.73" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M3 3l18 18" />
+                    </svg>
+                  ) : (
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M1 12c1.73-3.11 6-7 11-7s9.27 3.89 11 7c-1.73 3.11-6 7-11 7S2.73 15.11 1 12z" />
+                      <circle cx="12" cy="12" r="3" strokeWidth="1.8" />
+                    </svg>
+                  )}
+                </button>
               ) : null}
               {chat.unreadCount > 0 ? (
                 <span
@@ -103,39 +141,195 @@ export default function ChatListPanel({
   onSelectChat: (chatId: string) => void;
   onNewChat: () => void;
 }) {
-  const filtered = chats
-    .filter((chat) => !chat.isHidden)
+  const router = useRouter();
+  const masterKey = useAuthStore((s) => s.masterKey);
+  const showHiddenChats = useUIStore((s) => s.showHiddenChats);
+  const setShowHiddenChats = useUIStore((s) => s.setShowHiddenChats);
+  const setChatHidden = useChatsStore((s) => s.setChatHidden);
+
+  const [hiddenChatsEnabled, setHiddenChatsEnabled] = useState(false);
+  const [hiddenChatPinHash, setHiddenChatPinHash] = useState<string | null>(null);
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [hiddenPin, setHiddenPin] = useState('');
+  const [hiddenPinError, setHiddenPinError] = useState('');
+
+  const reloadSettings = useCallback(async () => {
+    try {
+      const settings = await loadSettings(masterKey ?? undefined);
+      setHiddenChatsEnabled(!!settings.hiddenChatsEnabled);
+      setHiddenChatPinHash(settings.hiddenChatPinHash || null);
+      if (!settings.hiddenChatsEnabled) {
+        setShowHiddenChats(false);
+      }
+    } catch {
+      // ignore
+    }
+  }, [masterKey, setShowHiddenChats]);
+
+  // Initial load
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void reloadSettings();
+  }, [reloadSettings]);
+
+  // Re-sync settings when the user returns to this view after visiting Settings.
+  // MessengerShell stays mounted during route navigation, so mount-only load is
+  // insufficient — we listen for window focus and document visibility changes.
+  useEffect(() => {
+    const handleFocus = () => void reloadSettings();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void reloadSettings();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [reloadSettings]);
+
+  const openHiddenUnlock = () => {
+    setHiddenPin('');
+    setHiddenPinError('');
+    setShowUnlockModal(true);
+  };
+
+  const toggleHiddenView = () => {
+    if (!hiddenChatsEnabled) return;
+    if (showHiddenChats) {
+      setShowHiddenChats(false);
+      return;
+    }
+    if (hiddenChatPinHash) {
+      openHiddenUnlock();
+      return;
+    }
+    setShowHiddenChats(true);
+  };
+
+  const unlockHiddenChats = async () => {
+    if (!hiddenChatPinHash) {
+      setShowHiddenChats(true);
+      setShowUnlockModal(false);
+      return;
+    }
+    if (hiddenPin.trim().length < 4) {
+      setHiddenPinError('PIN must be at least 4 characters');
+      return;
+    }
+    const ok = await verifyHiddenChatPin(hiddenPin, hiddenChatPinHash);
+    if (!ok) {
+      setHiddenPinError('Invalid hidden chats PIN');
+      return;
+    }
+    // Transparent migration: re-hash legacy PINs with stronger iterations
+    if (isLegacyHiddenPinHash(hiddenChatPinHash)) {
+      const newHash = await hashHiddenChatPin(hiddenPin);
+      const settings = await loadSettings();
+      settings.hiddenChatPinHash = newHash;
+      await saveSettings(settings);
+    }
+    setShowHiddenChats(true);
+    setShowUnlockModal(false);
+    setHiddenPin('');
+    setHiddenPinError('');
+  };
+
+  const toggleChatHidden = (chatId: string) => {
+    const target = chats.find((c) => c.id === chatId);
+    if (!target) return;
+
+    if (!hiddenChatsEnabled) return;
+    setChatHidden(chatId, !target.isHidden);
+  };
+
+  const modeScopedChats = chats
+    .filter((chat) => {
+      if (!hiddenChatsEnabled) return true;
+      return showHiddenChats ? chat.isHidden : !chat.isHidden;
+    });
+
+  const q = searchQuery.trim().toLowerCase();
+
+  const filtered = modeScopedChats
     .filter((chat) => {
       const contact = contacts.find((c) => c.id === chat.contactId);
       if (!contact) return false;
-      if (!searchQuery.trim()) return true;
-      return contact.username.toLowerCase().includes(searchQuery.toLowerCase());
+      if (!q) return true;
+      // Match by contact username OR by message content
+      if (contact.username.toLowerCase().includes(q)) return true;
+      return chat.messages.some((m) => m.content.toLowerCase().includes(q));
     });
 
   return (
     <div className="lume-panel h-full min-h-0 rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] overflow-hidden">
-      <div className="px-5 pt-5 pb-4 border-b border-[var(--border)]/70">
+      <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-[var(--border)]/70">
         <div className="flex items-center justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <h2 className="text-[12px] font-semibold uppercase tracking-[0.18em] text-[var(--text-primary)]">
               Messages
             </h2>
+            {hiddenChatsEnabled ? (
+              <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                {showHiddenChats ? 'Hidden mode' : 'Main mode'}
+              </p>
+            ) : null}
           </div>
-          <button
-            type="button"
-            onClick={onNewChat}
-            className="lume-icon-btn"
-            aria-label="New chat"
-            title="New chat"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 5v14" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M5 12h14" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-1 sm:gap-2">
+            {/* Settings shortcut — mobile only (desktop has LeftRail) */}
+            <button
+              type="button"
+              onClick={() => router.push('/settings')}
+              className="lume-icon-btn md:hidden"
+              aria-label="Settings"
+              title="Settings"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="12" r="3" strokeWidth="1.8" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+              </svg>
+            </button>
+            {hiddenChatsEnabled ? (
+              <button
+                type="button"
+                onClick={toggleHiddenView}
+                className="lume-icon-btn"
+                aria-label={showHiddenChats ? 'Back to main chats' : 'Open hidden chats'}
+                title={showHiddenChats ? 'Main chats' : 'Hidden chats'}
+              >
+                {showHiddenChats ? (
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M15 19l-7-7 7-7" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 11c1.657 0 3-1.567 3-3.5S13.657 4 12 4 9 5.567 9 7.5 10.343 11 12 11z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M6 11v7a1 1 0 001 1h10a1 1 0 001-1v-7" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M9 11V8.5C9 6.567 10.343 5 12 5s3 1.567 3 3.5V11" />
+                  </svg>
+                )}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onNewChat}
+              className="lume-icon-btn"
+              aria-label="New chat"
+              title="New chat"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 5v14" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M5 12h14" />
+              </svg>
+            </button>
+          </div>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-3 sm:mt-4">
           <div className="relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -150,8 +344,8 @@ export default function ChatListPanel({
             <input
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder={chats.length > 0 ? 'Search...' : 'No chats yet'}
-              disabled={chats.length === 0}
+              placeholder={modeScopedChats.length > 0 ? 'Search...' : 'No chats yet'}
+              disabled={modeScopedChats.length === 0}
               className="apple-input apple-input-icon disabled:opacity-60 disabled:cursor-not-allowed"
             />
           </div>
@@ -170,11 +364,44 @@ export default function ChatListPanel({
                 contact={contact}
                 selected={selectedChatId === chat.id}
                 onClick={() => onSelectChat(chat.id)}
+                showHiddenControls={hiddenChatsEnabled}
+                onToggleHidden={toggleChatHidden}
               />
             );
           })}
         </div>
       </div>
+
+      <Modal
+        isOpen={showUnlockModal}
+        onClose={() => setShowUnlockModal(false)}
+        title="Hidden Chats"
+      >
+        <div className="space-y-4">
+          <p className="text-[12px] text-[var(--text-secondary)]">
+            Enter your hidden chats PIN to open hidden conversations.
+          </p>
+          <Input
+            type="password"
+            value={hiddenPin}
+            onChange={(e) => {
+              setHiddenPin(e.target.value);
+              if (hiddenPinError) setHiddenPinError('');
+            }}
+            placeholder="Hidden chats PIN"
+            autoFocus
+            error={hiddenPinError || undefined}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                void unlockHiddenChats();
+              }
+            }}
+          />
+          <Button fullWidth onClick={() => void unlockHiddenChats()}>
+            Unlock
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

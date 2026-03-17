@@ -25,6 +25,7 @@ import {
   useTypingStore,
   useBlockedStore,
   type Message,
+  type Reaction,
 } from "@/stores";
 import { authApi, messagesApi } from "@/lib/api";
 import { wsClient } from "@/lib/websocket";
@@ -123,20 +124,74 @@ function StatusIcon({ status }: { status: Message["status"] }) {
   return null;
 }
 
+const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🔥"];
+
+function ReactionBar({ reactions, userId, onToggle }: { reactions: Reaction[]; userId: string | null; onToggle: (emoji: string) => void }) {
+  const grouped = new Map<string, { count: number; hasMine: boolean }>();
+  for (const r of reactions) {
+    const entry = grouped.get(r.emoji) || { count: 0, hasMine: false };
+    entry.count++;
+    if (r.senderId === userId) entry.hasMine = true;
+    grouped.set(r.emoji, entry);
+  }
+
+  return (
+    <div className="flex items-center gap-1 mt-1 flex-wrap">
+      {Array.from(grouped.entries()).map(([emoji, { count, hasMine }]) => (
+        <button
+          key={emoji}
+          type="button"
+          onClick={() => onToggle(emoji)}
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] transition-colors border ${
+            hasMine
+              ? "bg-[var(--accent)]/15 border-[var(--accent)]/40 text-[var(--text-primary)]"
+              : "bg-[var(--surface-strong)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-alt)]"
+          }`}
+        >
+          <span>{emoji}</span>
+          {count > 1 && <span className="text-[10px] font-semibold">{count}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function EmojiPicker({ onSelect, onClose }: { onSelect: (emoji: string) => void; onClose: () => void }) {
+  return (
+    <div className="flex items-center gap-1 px-2 py-1.5 rounded-full bg-[var(--surface-strong)] border border-[var(--border)] shadow-[var(--shadow-md)]">
+      {QUICK_REACTIONS.map((emoji) => (
+        <button
+          key={emoji}
+          type="button"
+          onClick={() => { onSelect(emoji); onClose(); }}
+          className="w-8 h-8 rounded-full hover:bg-[var(--surface-alt)] transition-colors inline-flex items-center justify-center text-[18px]"
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function MessageBubble({
   message,
   isMine,
   onDelete,
   onReply,
+  onReact,
   replyAuthorName,
+  userId,
 }: {
   message: Message;
   isMine: boolean;
   onDelete: (messageId: string) => void;
   onReply: (message: Message) => void;
+  onReact: (messageId: string, emoji: string) => void;
   replyAuthorName?: string;
+  userId: string | null;
 }) {
   const [showActions, setShowActions] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const timeLabel = new Date(message.timestamp).toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
@@ -147,6 +202,19 @@ function MessageBubble({
       {/* Action buttons — left of own messages */}
       {isMine && (
         <div className="self-center mr-2 flex items-center gap-1 opacity-0 group-hover:opacity-60 transition-opacity">
+          <button
+            type="button"
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            className="hover:!opacity-100 p-1"
+            title="React"
+          >
+            <svg className="w-4 h-4 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <circle cx="12" cy="12" r="10" strokeWidth="2" />
+              <path strokeLinecap="round" strokeWidth="2" d="M8 14s1.5 2 4 2 4-2 4-2" />
+              <circle cx="9" cy="10" r="1" fill="currentColor" stroke="none" />
+              <circle cx="15" cy="10" r="1" fill="currentColor" stroke="none" />
+            </svg>
+          </button>
           <button
             type="button"
             onClick={() => onReply(message)}
@@ -218,6 +286,18 @@ function MessageBubble({
           </div>
         </div>
 
+        {/* Emoji picker popover */}
+        {showEmojiPicker && (
+          <div className={`absolute ${isMine ? 'right-0' : 'left-0'} -mt-12 z-20`} style={{ top: 0 }}>
+            <EmojiPicker onSelect={(emoji) => onReact(message.id, emoji)} onClose={() => setShowEmojiPicker(false)} />
+          </div>
+        )}
+
+        {/* Reactions display */}
+        {message.reactions && message.reactions.length > 0 && (
+          <ReactionBar reactions={message.reactions} userId={userId} onToggle={(emoji) => onReact(message.id, emoji)} />
+        )}
+
         {/* Inline delete confirmation */}
         {showActions && (
           <div className="absolute top-0 right-0 -mt-8 flex gap-1 z-10">
@@ -244,6 +324,19 @@ function MessageBubble({
       {/* Action buttons — right of received messages */}
       {!isMine && (
         <div className="self-center ml-2 flex items-center gap-1 opacity-0 group-hover:opacity-60 transition-opacity">
+          <button
+            type="button"
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            className="hover:!opacity-100 p-1"
+            title="React"
+          >
+            <svg className="w-4 h-4 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <circle cx="12" cy="12" r="10" strokeWidth="2" />
+              <path strokeLinecap="round" strokeWidth="2" d="M8 14s1.5 2 4 2 4-2 4-2" />
+              <circle cx="9" cy="10" r="1" fill="currentColor" stroke="none" />
+              <circle cx="15" cy="10" r="1" fill="currentColor" stroke="none" />
+            </svg>
+          </button>
           <button
             type="button"
             onClick={() => onReply(message)}
@@ -280,9 +373,12 @@ const MessageBubbleMemo = memo(
     prev.message.timestamp === next.message.timestamp &&
     prev.message.selfDestructAt === next.message.selfDestructAt &&
     prev.message.replyTo?.messageId === next.message.replyTo?.messageId &&
+    prev.message.reactions?.length === next.message.reactions?.length &&
     prev.replyAuthorName === next.replyAuthorName &&
+    prev.userId === next.userId &&
     prev.onDelete === next.onDelete &&
-    prev.onReply === next.onReply,
+    prev.onReply === next.onReply &&
+    prev.onReact === next.onReact,
 );
 
 export default function ChatPage({ params }: ChatPageProps) {
@@ -482,6 +578,108 @@ export default function ChatPage({ params }: ChatPageProps) {
       setReplyingTo(message);
     },
     [],
+  );
+
+  const [msgSearchQuery, setMsgSearchQuery] = useState("");
+  const [showMsgSearch, setShowMsgSearch] = useState(false);
+  const [highlightMsgId, setHighlightMsgId] = useState<string | null>(null);
+
+  const msgSearchResults = (() => {
+    if (!msgSearchQuery.trim() || !chat) return [];
+    const q = msgSearchQuery.toLowerCase();
+    return chat.messages
+      .filter((m) => m.content.toLowerCase().includes(q))
+      .slice(-50);
+  })();
+
+  const handleReact = useCallback(
+    async (targetMessageId: string, emoji: string) => {
+      if (!contact || !userId || !identityKeys || !contactId) return;
+
+      // Check if user already reacted with this emoji — toggle off
+      const targetMsg = useChatsStore.getState().chats
+        .find((c) => c.id === chatId)
+        ?.messages.find((m) => m.id === targetMessageId);
+      const alreadyReacted = targetMsg?.reactions?.some(
+        (r) => r.senderId === userId && r.emoji === emoji
+      );
+      const action = alreadyReacted ? 'remove' : 'add';
+
+      // Apply locally immediately
+      if (action === 'add') {
+        useChatsStore.getState().addReaction(chatId, targetMessageId, {
+          emoji,
+          senderId: userId,
+          timestamp: Date.now(),
+        });
+      } else {
+        useChatsStore.getState().removeReaction(chatId, targetMessageId, userId, emoji);
+      }
+
+      // Send encrypted reaction via regular message pipeline
+      try {
+        const timestamp = Date.now();
+        const plaintext = JSON.stringify({
+          messageType: 'reaction',
+          timestamp,
+          reaction: { targetMessageId, emoji, action },
+        });
+        const plaintextBytes = new TextEncoder().encode(plaintext);
+
+        const sessions = useSessionsStore.getState().sessions;
+        const existing = sessions[contactId];
+        let session = existing ? deserializeSession(existing) : null;
+        let x3dhInit: {
+          senderIdentityKey: string;
+          senderEphemeralKey: string;
+          recipientOneTimePreKey?: string | null;
+        } | undefined;
+
+        if (!session) {
+          const { data: bundle, error: bundleError } = await authApi.getBundle(contact.username, identityKeys);
+          if (bundleError || !bundle) return;
+
+          const ok = verify(decodeBase64(bundle.signedPrekey), decodeBase64(bundle.signedPrekeySignature), bundle.identityKey);
+          if (!ok) return;
+
+          const recipientIk = bundle.exchangeIdentityKey || bundle.exchangeKey;
+          if (!recipientIk) return;
+
+          const { sharedSecret, ephemeralPublicKey } = x3dhInitiate(identityKeys.exchange, {
+            identityKey: recipientIk,
+            signingKey: bundle.identityKey,
+            signedPreKey: bundle.signedPrekey,
+            signature: bundle.signedPrekeySignature,
+            oneTimePreKey: bundle.oneTimePrekey,
+          });
+
+          session = initSenderSession(sharedSecret, bundle.signedPrekey);
+          x3dhInit = {
+            senderIdentityKey: identityKeys.exchange.publicKey,
+            senderEphemeralKey: ephemeralPublicKey,
+            recipientOneTimePreKey: bundle.oneTimePrekey ?? null,
+          };
+        }
+
+        const encrypted = ratchetEncrypt(session, plaintextBytes);
+        const encryptedPayload = encodeRatchetEnvelope({
+          encrypted,
+          timestamp,
+          selfDestruct: null,
+          ...(x3dhInit ? { x3dh: x3dhInit } : {}),
+        });
+
+        upsertSession(contactId, serializeSession(session));
+
+        await messagesApi.send(
+          { senderId: userId, recipientUsername: contact.username, encryptedPayload },
+          identityKeys,
+        );
+      } catch (err) {
+        console.error('Failed to send reaction:', err);
+      }
+    },
+    [chatId, contact, contactId, userId, identityKeys, upsertSession],
   );
 
   const handleSend = async () => {
@@ -765,6 +963,17 @@ export default function ChatPage({ params }: ChatPageProps) {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={() => { setShowMsgSearch((v) => !v); if (showMsgSearch) { setMsgSearchQuery(""); setHighlightMsgId(null); } }}
+              className="lume-icon-btn"
+              aria-label="Search messages"
+              title="Search messages"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M21 21l-4.3-4.3m1.8-5.2a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+            <button
+              type="button"
               onClick={() => setShowOptions((v) => !v)}
               className="lume-icon-btn"
               aria-label="Options"
@@ -814,6 +1023,52 @@ export default function ChatPage({ params }: ChatPageProps) {
             ))}
           </div>
         ) : null}
+
+        {/* Message search bar */}
+        {showMsgSearch && (
+          <div className="mt-3 space-y-2">
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M21 21l-4.3-4.3m1.8-5.2a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </span>
+              <input
+                value={msgSearchQuery}
+                onChange={(e) => setMsgSearchQuery(e.target.value)}
+                placeholder="Search in chat..."
+                autoFocus
+                className="apple-input apple-input-icon"
+              />
+            </div>
+            {msgSearchQuery.trim() && (
+              <div className="max-h-40 overflow-y-auto rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)]">
+                {msgSearchResults.length === 0 ? (
+                  <p className="px-4 py-3 text-[12px] text-[var(--text-muted)]">No results</p>
+                ) : (
+                  msgSearchResults.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setHighlightMsgId(m.id);
+                        const el = document.querySelector(`[data-message-id="${m.id}"]`);
+                        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        setTimeout(() => setHighlightMsgId(null), 2000);
+                      }}
+                      className="w-full px-4 py-2 text-left hover:bg-[var(--surface-alt)] transition-colors border-b border-[var(--border)] last:border-b-0"
+                    >
+                      <p className="text-[12px] text-[var(--text-primary)] truncate">{m.content}</p>
+                      <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                        {new Date(m.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       <main
@@ -856,14 +1111,21 @@ export default function ChatPage({ params }: ChatPageProps) {
                 }
               }
               return (
-                <MessageBubbleMemo
+                <div
                   key={m.id}
-                  message={m}
-                  isMine={m.senderId === userId}
-                  onDelete={handleDeleteMessage}
-                  onReply={handleReply}
-                  replyAuthorName={replyAuthorName}
-                />
+                  data-message-id={m.id}
+                  className={`transition-colors duration-500 rounded-lg ${highlightMsgId === m.id ? 'bg-[var(--accent)]/10' : ''}`}
+                >
+                  <MessageBubbleMemo
+                    message={m}
+                    isMine={m.senderId === userId}
+                    onDelete={handleDeleteMessage}
+                    onReply={handleReply}
+                    onReact={handleReact}
+                    replyAuthorName={replyAuthorName}
+                    userId={userId}
+                  />
+                </div>
               );
             })}
             <div ref={messagesEndRef} />
