@@ -46,3 +46,7 @@ coverage/
 # Internal team docs (not public)
 CHANGELOG.md
 CI_HANDOFF.md
+
+# Internal dev scripts (not public)
+server/scripts/
+client/scripts/
