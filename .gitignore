@@ -42,3 +42,7 @@ yarn-error.log*
 # Test coverage
 coverage/
 .nyc_output/
+
+# Internal team docs (not public)
+CHANGELOG.md
+CI_HANDOFF.md
