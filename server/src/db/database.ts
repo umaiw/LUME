@@ -65,6 +65,7 @@ db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS idx_users_identity_key_unique ON users(identity_key);
   CREATE INDEX IF NOT EXISTS idx_prekeys_user ON one_time_prekeys(user_id);
   CREATE INDEX IF NOT EXISTS idx_messages_recipient ON pending_messages(recipient_id);
+  CREATE INDEX IF NOT EXISTS idx_messages_sender ON pending_messages(sender_id);
   CREATE INDEX IF NOT EXISTS idx_request_signatures_created_at ON request_signatures(created_at);
 
   CREATE TABLE IF NOT EXISTS blocked_users (
@@ -379,7 +380,7 @@ export const database = {
 
   rememberRequestSignature(requestHash: string, identityKey: string): boolean {
     const nowSec = Math.floor(Date.now() / 1000)
-    const ttlSec = 120
+    const ttlSec = 180
     const result = db.transaction(() => {
       cleanupOldRequestSignatures.run(nowSec - ttlSec)
       return insertRequestSignature.run(requestHash, identityKey)

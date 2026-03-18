@@ -15,6 +15,11 @@ import { hkdf, extract as hkdfExtract, expand as hkdfExpand } from '@noble/hashe
 const MAX_SKIP = 200; // Максимальное количество пропущенных сообщений за один рывок
 const MAX_SKIPPED_KEYS = 500; // Максимальный размер хранилища пропущенных ключей
 
+/** Zero out a Uint8Array to prevent key material from lingering in memory. */
+function zeroBytes(arr: Uint8Array): void {
+    arr.fill(0);
+}
+
 // ==================== Типы ====================
 
 export interface DoubleRatchetSession {
@@ -158,6 +163,9 @@ export function x3dhInitiate(
 
     // Деривируем shared secret через HKDF (salt = пустой, info = domain separator)
     const sharedSecret = hkdf(sha256, combined, new Uint8Array(0), INFO_X3DH, 32);
+    zeroBytes(dh1); zeroBytes(dh2); zeroBytes(dh3);
+    if (dh4) zeroBytes(dh4);
+    zeroBytes(combined);
 
     return {
         sharedSecret,
@@ -202,7 +210,11 @@ export function x3dhRespond(
         combined.set(dh4, offset);
     }
 
-    return hkdf(sha256, combined, new Uint8Array(0), INFO_X3DH, 32);
+    const sharedSecret = hkdf(sha256, combined, new Uint8Array(0), INFO_X3DH, 32);
+    zeroBytes(dh1); zeroBytes(dh2); zeroBytes(dh3);
+    if (dh4) zeroBytes(dh4);
+    zeroBytes(combined);
+    return sharedSecret;
 }
 
 // ==================== Double Ratchet ====================
@@ -296,11 +308,11 @@ function skipMessageKeys(session: DoubleRatchetSession, until: number): void {
 
     // Evict oldest skipped keys if over capacity
     if (session.skippedMessageKeys.size > MAX_SKIPPED_KEYS) {
-        const keysIter = session.skippedMessageKeys.keys();
-        while (session.skippedMessageKeys.size > MAX_SKIPPED_KEYS) {
-            const oldest = keysIter.next();
-            if (oldest.done) break;
-            session.skippedMessageKeys.delete(oldest.value);
+        const allKeys = Array.from(session.skippedMessageKeys.keys());
+        let i = 0;
+        while (session.skippedMessageKeys.size > MAX_SKIPPED_KEYS && i < allKeys.length) {
+            session.skippedMessageKeys.delete(allKeys[i]);
+            i++;
         }
     }
 }
@@ -330,6 +342,7 @@ export function ratchetEncrypt(
     // Шифруем с message key
     const nonce = nacl.randomBytes(nacl.secretbox.nonceLength);
     const ciphertext = nacl.secretbox(plaintext, nonce, messageKey);
+    zeroBytes(messageKey);
 
     return {
         header,
@@ -354,7 +367,9 @@ export function ratchetDecrypt(
 
         const ciphertext = decodeBase64(message.ciphertext);
         const nonce = decodeBase64(message.nonce);
-        return nacl.secretbox.open(ciphertext, nonce, skippedMessageKey);
+        const result = nacl.secretbox.open(ciphertext, nonce, skippedMessageKey);
+        zeroBytes(skippedMessageKey);
+        return result;
     }
 
     // Нужен ли DH ratchet?
@@ -383,7 +398,9 @@ export function ratchetDecrypt(
     // Расшифровываем
     const ciphertext = decodeBase64(message.ciphertext);
     const nonce = decodeBase64(message.nonce);
-    return nacl.secretbox.open(ciphertext, nonce, messageKey);
+    const result = nacl.secretbox.open(ciphertext, nonce, messageKey);
+    zeroBytes(messageKey);
+    return result;
 }
 
 // ==================== Сериализация ====================

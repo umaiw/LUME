@@ -204,12 +204,8 @@ router.post('/register', registerRateLimit, (req: Request, res: Response) => {
     audit('register', { userId, username: body.username })
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message.includes('UNIQUE constraint failed: users.username')) {
-        res.status(409).json({ error: 'Username already taken' })
-        return
-      }
-      if (error.message.includes('UNIQUE constraint failed: users.identity_key')) {
-        res.status(409).json({ error: 'Identity key already registered' })
+      if (error.message.includes('UNIQUE constraint failed')) {
+        res.status(409).json({ error: 'Registration conflict. Try a different username.' })
         return
       }
     }

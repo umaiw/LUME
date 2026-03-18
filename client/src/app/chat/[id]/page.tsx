@@ -100,7 +100,7 @@ function StatusIcon({ status }: { status: Message["status"] }) {
   if (status === "delivered" || status === "read") {
     return (
       <svg
-        className={base}
+        className={`${base}${status === "read" ? " text-blue-400" : ""}`}
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -124,6 +124,21 @@ function StatusIcon({ status }: { status: Message["status"] }) {
   return null;
 }
 
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return "0s";
+  const totalSec = Math.ceil(ms / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  if (totalSec < 3600) return `${Math.floor(totalSec / 60)}m ${totalSec % 60}s`;
+  if (totalSec < 86400) {
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  return h > 0 ? `${d}d ${h}h` : `${d}d`;
+}
+
 function MessageBubble({
   message,
   isMine,
@@ -138,10 +153,22 @@ function MessageBubble({
   replyAuthorName?: string;
 }) {
   const [showActions, setShowActions] = useState(false);
+  const [remaining, setRemaining] = useState<number | null>(null);
   const timeLabel = new Date(message.timestamp).toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  useEffect(() => {
+    if (!message.selfDestructAt) return undefined;
+    const update = () => {
+      const left = message.selfDestructAt! - Date.now();
+      setRemaining(left > 0 ? left : 0);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [message.selfDestructAt]);
 
   return (
     <div className={`group flex ${isMine ? "justify-end" : "justify-start"}`}>
@@ -196,25 +223,32 @@ function MessageBubble({
             </span>
             {isMine ? <StatusIcon status={message.status} /> : null}
             {message.selfDestructAt ? (
-              <svg
-                className="w-4 h-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M12 8v5l3 2"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+              <span className="inline-flex items-center gap-0.5">
+                <svg
+                  className="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M12 8v5l3 2"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                {remaining !== null && remaining > 0 ? (
+                  <span className="text-[10px] tracking-[0.04em]">
+                    {formatCountdown(remaining)}
+                  </span>
+                ) : null}
+              </span>
             ) : null}
           </div>
         </div>
@@ -656,10 +690,11 @@ export default function ChatPage({ params }: ChatPageProps) {
 
   const timerOptions = [
     { value: null, label: "Off" },
-    { value: 5, label: "5s" },
     { value: 30, label: "30s" },
-    { value: 60, label: "1m" },
     { value: 300, label: "5m" },
+    { value: 3600, label: "1h" },
+    { value: 86400, label: "24h" },
+    { value: 604800, label: "7d" },
   ];
 
   if (!hydrated) {
@@ -771,7 +806,7 @@ export default function ChatPage({ params }: ChatPageProps) {
                   ) : null}
                   {selfDestructTime ? (
                     <span className="lume-badge">
-                      Auto-delete {selfDestructTime}s
+                      Auto-delete {selfDestructTime >= 86400 ? `${Math.floor(selfDestructTime / 86400)}d` : selfDestructTime >= 3600 ? `${Math.floor(selfDestructTime / 3600)}h` : selfDestructTime >= 60 ? `${Math.floor(selfDestructTime / 60)}m` : `${selfDestructTime}s`}
                     </span>
                   ) : null}
                 </div>
@@ -926,6 +961,22 @@ export default function ChatPage({ params }: ChatPageProps) {
           </div>
           <button
             type="button"
+            onClick={() => setShowOptions((v) => !v)}
+            className={`w-10 h-10 rounded-full border transition-colors inline-flex items-center justify-center flex-shrink-0 ${
+              selfDestructTime
+                ? "bg-[var(--accent)]/15 border-[var(--accent)]/40 text-[var(--accent)]"
+                : "bg-[var(--surface-strong)] border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+            }`}
+            aria-label="Self-destruct timer"
+            title={selfDestructTime ? `Auto-delete: ${selfDestructTime >= 86400 ? `${Math.floor(selfDestructTime / 86400)}d` : selfDestructTime >= 3600 ? `${Math.floor(selfDestructTime / 3600)}h` : selfDestructTime >= 60 ? `${Math.floor(selfDestructTime / 60)}m` : `${selfDestructTime}s`}` : "Self-destruct timer"}
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v5l3 2" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
+          <button
+            type="button"
             onClick={() => void handleSend()}
             disabled={!messageText.trim() || sending}
             className="w-12 h-12 rounded-full bg-[var(--accent)] text-[var(--accent-contrast)] border border-[var(--border)] hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center flex-shrink-0 shadow-[var(--shadow-sm)]"
@@ -955,7 +1006,7 @@ export default function ChatPage({ params }: ChatPageProps) {
         {selfDestructTime ? (
           <div className="mt-2 text-center">
             <span className="text-[11px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
-              Auto-delete in {selfDestructTime}s
+              Auto-delete in {selfDestructTime >= 86400 ? `${Math.floor(selfDestructTime / 86400)}d` : selfDestructTime >= 3600 ? `${Math.floor(selfDestructTime / 3600)}h` : selfDestructTime >= 60 ? `${Math.floor(selfDestructTime / 60)}m` : `${selfDestructTime}s`}
             </span>
           </div>
         ) : null}

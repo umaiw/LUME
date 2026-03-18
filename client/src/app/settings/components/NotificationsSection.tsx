@@ -4,8 +4,12 @@
 
 "use client";
 
+import { useState, useCallback } from "react";
 import type { Settings } from "@/crypto/storage";
-import { requestNotificationPermission } from "@/lib/notifications";
+import {
+  requestNotificationPermission,
+  getNotificationPermission,
+} from "@/lib/notifications";
 import { setSoundEnabled } from "@/lib/sounds";
 import { SectionHeading, ToggleRow } from "./shared";
 
@@ -22,19 +26,36 @@ export default function NotificationsSection({
   onSoundChange,
   onUpdate,
 }: NotificationsSectionProps) {
+  const [browserPermission, setBrowserPermission] = useState(
+    getNotificationPermission,
+  );
+
+  const handleToggle = useCallback(
+    async (enabled: boolean) => {
+      void onUpdate("notifications", enabled);
+      if (enabled) {
+        const granted = await requestNotificationPermission().catch(
+          () => false,
+        );
+        setBrowserPermission(granted ? "granted" : getNotificationPermission());
+      }
+    },
+    [onUpdate],
+  );
+
+  const permissionHint =
+    settings.notifications && browserPermission === "denied"
+      ? "Blocked by browser — enable in site settings"
+      : undefined;
+
   return (
     <section>
       <SectionHeading>Notifications</SectionHeading>
       <ToggleRow
         label="Desktop Notifications"
-        description="Show a notification when a new message arrives"
+        description={permissionHint ?? "Show a notification when a new message arrives"}
         checked={settings.notifications}
-        onChange={(v) => {
-          void onUpdate("notifications", v);
-          if (v) {
-            void requestNotificationPermission().catch(() => {});
-          }
-        }}
+        onChange={(v) => void handleToggle(v)}
       />
       <ToggleRow
         label="Sound"

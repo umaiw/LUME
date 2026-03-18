@@ -40,6 +40,20 @@ function reportCryptoIssue(message: string) {
   useUIStore.getState().setCryptoBanner({ level: 'warning', message });
 }
 
+// Per-sender lock to prevent concurrent ratchet session mutations
+const senderLocks = new Map<string, Promise<unknown>>();
+function withSenderLock<T>(senderId: string, fn: () => Promise<T>): Promise<T> {
+  const prev = senderLocks.get(senderId) ?? Promise.resolve();
+  const next = prev.then(fn, fn);
+  senderLocks.set(senderId, next);
+  next.finally(() => {
+    if (senderLocks.get(senderId) === next) {
+      senderLocks.delete(senderId);
+    }
+  });
+  return next;
+}
+
 function loadBlockedIds(): string[] {
   try {
     const raw = localStorage.getItem('lume:blocked');
@@ -83,7 +97,7 @@ async function replenishPrekeys(
 
   const { error } = await authApi.uploadPrekeys(userId, uploadPayload, identityKeys);
   if (error) {
-    console.warn('Failed to upload replenished prekeys:', error);
+    console.warn('Failed to upload replenished prekeys, skipping local save:', error);
     return;
   }
 
@@ -130,11 +144,12 @@ async function ensureContact(params: {
     };
   }
 
-  const latestContacts = useContactsStore.getState().contacts;
-  if (!latestContacts.some((c) => c.id === newContact.id)) {
+  const currentContacts = useContactsStore.getState().contacts;
+  if (!currentContacts.some((c) => c.id === newContact.id)) {
     useContactsStore.getState().addContact(newContact);
+    const updatedContacts = useContactsStore.getState().contacts;
     if (masterKey) {
-      await saveContacts([...latestContacts, newContact], masterKey);
+      await saveContacts(updatedContacts, masterKey);
     }
   }
 
@@ -173,8 +188,9 @@ async function appendIncomingMessage(params: {
       return false;
     }
 
-    const sessions = useSessionsStore.getState().sessions;
-    const existing = sessions[senderId];
+    // Read fresh session state inside the lock to prevent race conditions
+    const freshSessions = useSessionsStore.getState().sessions;
+    const existing = freshSessions[senderId];
 
     let session = existing ? deserializeSession(existing) : null;
 
@@ -462,14 +478,16 @@ export function useMessengerSync() {
 
       const ackIds: string[] = [];
       for (const pending of data.messages) {
-        const processed = await appendIncomingMessage({
-          senderId: pending.senderId,
-          senderUsername: pending.senderUsername,
-          messageId: pending.id,
-          encryptedPayload: pending.encryptedPayload,
-          fallbackTimestamp: pending.timestamp,
-          masterKey,
-        });
+        const processed = await withSenderLock(pending.senderId, () =>
+          appendIncomingMessage({
+            senderId: pending.senderId,
+            senderUsername: pending.senderUsername,
+            messageId: pending.id,
+            encryptedPayload: pending.encryptedPayload,
+            fallbackTimestamp: pending.timestamp,
+            masterKey,
+          })
+        );
         if (processed) ackIds.push(pending.id);
       }
 
@@ -590,14 +608,16 @@ export function useMessengerSync() {
       };
 
       void (async () => {
-        const processed = await appendIncomingMessage({
-          senderId: data.senderId,
-          senderUsername: data.senderUsername,
-          messageId: data.messageId,
-          encryptedPayload: data.encryptedPayload,
-          fallbackTimestamp: data.timestamp,
-          masterKey: useAuthStore.getState().masterKey,
-        });
+        const processed = await withSenderLock(data.senderId, () =>
+          appendIncomingMessage({
+            senderId: data.senderId,
+            senderUsername: data.senderUsername,
+            messageId: data.messageId,
+            encryptedPayload: data.encryptedPayload,
+            fallbackTimestamp: data.timestamp,
+            masterKey: useAuthStore.getState().masterKey,
+          })
+        );
 
         if (processed) {
           await messagesApi.acknowledge(data.messageId, identityKeys);

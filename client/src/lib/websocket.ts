@@ -27,6 +27,7 @@ class WebSocketClient {
     private isManuallyDisconnected = false;
     private token: string | null = null;
     private onTokenExpired: (() => void) | null = null;
+    private typingTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
     private refreshAttempts = 0;
     private lastRefreshTime = 0;
@@ -166,14 +167,22 @@ class WebSocketClient {
                 if (senderId && typeof isTypingNow === 'boolean') {
                     useTypingStore.getState().setTyping(senderId, isTypingNow);
 
+                    // Clear previous timer for this sender
+                    const prevTimer = this.typingTimers.get(senderId);
+                    if (prevTimer) clearTimeout(prevTimer);
+
                     // Auto-clear typing after 5s if no update received
                     if (isTypingNow) {
-                        setTimeout(() => {
+                        const timer = setTimeout(() => {
+                            this.typingTimers.delete(senderId);
                             const current = useTypingStore.getState().typingUsers[senderId];
                             if (current) {
                                 useTypingStore.getState().setTyping(senderId, false);
                             }
                         }, 5000);
+                        this.typingTimers.set(senderId, timer);
+                    } else {
+                        this.typingTimers.delete(senderId);
                     }
                 }
                 break;
@@ -332,6 +341,8 @@ class WebSocketClient {
         this._closeSocket();
         this.token = null;
         this.handlers.clear();
+        for (const timer of this.typingTimers.values()) clearTimeout(timer);
+        this.typingTimers.clear();
         useUIStore.getState().setWsStatus('disconnected');
         useTypingStore.getState().clearAll();
     }

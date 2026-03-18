@@ -28,21 +28,28 @@ export async function requestNotificationPermission(): Promise<boolean> {
 }
 
 /**
+ * Returns the current browser notification permission state.
+ * Useful for showing permission status in settings UI.
+ */
+export function getNotificationPermission(): NotificationPermission | 'unsupported' {
+  if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
+  return Notification.permission;
+}
+
+/**
  * Show a desktop notification for an incoming message.
  * Only fires when the tab is not focused.
+ * Body never includes message content — E2E encrypted messenger, privacy first.
  */
-export function notifyIncomingMessage(senderUsername: string, preview?: string): void {
+export function notifyIncomingMessage(senderUsername: string): void {
   if (typeof window === 'undefined' || !('Notification' in window)) return;
   if (Notification.permission !== 'granted') return;
 
   // Don't notify if the window is focused
   if (document.hasFocus()) return;
 
-  const title = `${senderUsername}`;
-  const body = preview || 'New encrypted message';
-
-  const notification = new Notification(title, {
-    body,
+  const notification = new Notification('LUME', {
+    body: `New message from ${senderUsername}`,
     icon: '/lume-icon.png',
     tag: `lume-msg-${senderUsername}`, // collapse per sender
     silent: false,

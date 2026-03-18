@@ -82,11 +82,11 @@ export function useContactActions() {
         addedAt: Date.now(),
       };
 
-      const latestContacts = useContactsStore.getState().contacts;
       addContact(newContact);
+      const updatedContacts = useContactsStore.getState().contacts;
 
       if (masterKey) {
-        await saveContacts([...latestContacts, newContact], masterKey);
+        await saveContacts(updatedContacts, masterKey);
       }
 
       setShowAddContact(false);

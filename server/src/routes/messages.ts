@@ -142,7 +142,7 @@ export function isValidEncryptedPayload(value: string): boolean {
       return false
     }
 
-    if (parsed.selfDestruct !== undefined && parsed.selfDestruct !== null) {
+    if (parsed.selfDestruct != null) {
       if (typeof parsed.selfDestruct !== 'number') return false
       const maxSeconds = 7 * 24 * 60 * 60
       if (

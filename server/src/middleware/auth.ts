@@ -77,13 +77,8 @@ export const requireSignature = (req: Request, res: Response, next: NextFunction
     const rawBody = (req as Request & { rawBody?: string }).rawBody
     const bodyCandidates: string[] = []
 
-    if (rawBody !== undefined) {
-      if (rawBody.length > 0) {
-        bodyCandidates.push(rawBody)
-      } else {
-        bodyCandidates.push('')
-        bodyCandidates.push('{}')
-      }
+    if (rawBody !== undefined && rawBody.length > 0) {
+      bodyCandidates.push(rawBody)
     } else if (req.body && Object.keys(req.body).length > 0) {
       bodyCandidates.push(JSON.stringify(req.body))
     } else {
