@@ -1,13 +1,8 @@
 import type { NextConfig } from "next";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   ...(process.env.STANDALONE === "1" && { output: "standalone" }),
   turbopack: {
-    root: projectRoot,
     resolveAlias: {
       '@noble/hashes/hmac': '@noble/hashes/hmac.js',
       '@noble/hashes/sha256': '@noble/hashes/sha2.js',
