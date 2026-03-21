@@ -69,7 +69,7 @@ export default function LeftRail({ onPanic, onOpenBackup }: { onPanic?: () => vo
 
   return (
     <div className="lume-rail h-full min-h-0 rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] overflow-hidden flex flex-col">
-      <div className="px-6 pt-6 pb-5 border-b border-[var(--border)]/70">
+      <div className="px-6 pt-6 pb-5 border-b border-[var(--border)]">
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -151,7 +151,7 @@ export default function LeftRail({ onPanic, onOpenBackup }: { onPanic?: () => vo
         </div>
       </div>
 
-      <div className="px-6 py-5 border-t border-[var(--border)]/70 flex items-center justify-between">
+      <div className="px-6 py-5 border-t border-[var(--border)] flex items-center justify-between">
         {/* Theme toggle is available only on the start screen and in the profile panel after login. */}
         <ThemeToggle size="sm" />
         <button
