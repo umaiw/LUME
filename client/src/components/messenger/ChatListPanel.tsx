@@ -42,7 +42,7 @@ function ChatRow({
       onClick={onClick}
       className={`
         relative w-full px-4 py-3.5 sm:py-3 text-left transition-colors
-        border-b border-[var(--border)] last:border-b-0
+        border-b border-[var(--border)]/55 last:border-b-0
         min-h-[56px] sm:min-h-0
         ${selected ? 'bg-[var(--surface-strong)] text-[var(--text-primary)]' : 'hover:bg-[var(--surface-alt)] active:bg-[var(--surface-strong)] text-[var(--text-primary)]'}
       `}
@@ -52,7 +52,8 @@ function ChatRow({
         <div
           className={`
             w-11 h-11 rounded-full border flex items-center justify-center font-semibold flex-shrink-0
-            ${selected ? 'border-[var(--accent)]/35 bg-[var(--surface-alt)]' : 'border-[var(--border)] bg-[var(--surface-alt)]'}
+            shadow-[var(--shadow-sm)]
+            ${selected ? 'border-[var(--accent)]/35 bg-[var(--surface)]' : 'border-[var(--border)] bg-[var(--surface)]'}
           `}
         >
           {contact.username[0].toUpperCase()}
@@ -255,7 +256,7 @@ export default function ChatListPanel({
 
   return (
     <div className="lume-panel h-full min-h-0 rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] overflow-hidden">
-      <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-[var(--border)]">
+      <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-[var(--border)]/70">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-[12px] font-semibold uppercase tracking-[0.18em] text-[var(--text-primary)]">

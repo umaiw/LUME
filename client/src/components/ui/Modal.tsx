@@ -50,7 +50,7 @@ export function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
 
       <div
         role="dialog"
@@ -65,7 +65,7 @@ export function Modal({
         `}
       >
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-[var(--border)] flex-shrink-0">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-[var(--border)]/70 flex-shrink-0">
             {title && <h2 className="text-sm font-semibold uppercase tracking-[0.04em] text-[var(--text-primary)]">{title}</h2>}
             {showCloseButton && (
               <button
