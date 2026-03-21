@@ -27,7 +27,7 @@ export function proxy(request: NextRequest): NextResponse {
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
     "style-src 'self' 'unsafe-inline'", // Tailwind needs inline styles
-    `connect-src 'self' ${apiOrigin} ${wsOrigin} ws: wss:`,
+    `connect-src 'self' ${apiOrigin} ${wsOrigin}`,
     "img-src 'self' data: blob:",
     "font-src 'self'",
     "object-src 'none'",

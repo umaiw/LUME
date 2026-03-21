@@ -171,6 +171,10 @@ const countPrekeys = db.prepare(`
   SELECT COUNT(*) as count FROM one_time_prekeys WHERE user_id = ?
 `)
 
+const countPendingForRecipient = db.prepare(`
+  SELECT COUNT(*) as count FROM pending_messages WHERE recipient_id = ?
+`)
+
 const insertMessage = db.prepare(`
   INSERT INTO pending_messages (id, sender_id, recipient_id, encrypted_payload)
   VALUES (?, ?, ?, ?)
@@ -313,6 +317,11 @@ export const database = {
 
   getPrekeyCount(userId: string): number {
     const result = countPrekeys.get(userId) as { count: number }
+    return result.count
+  },
+
+  getPendingMessageCount(recipientId: string): number {
+    const result = countPendingForRecipient.get(recipientId) as { count: number }
     return result.count
   },
 

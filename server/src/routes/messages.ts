@@ -209,6 +209,12 @@ router.post('/send', requireSignature, sendRateLimit, (req: Request, res: Respon
       return
     }
 
+    const MAX_PENDING_PER_USER = 10000
+    if (database.getPendingMessageCount(recipient.id) >= MAX_PENDING_PER_USER) {
+      res.status(429).json({ error: 'Recipient inbox is full' })
+      return
+    }
+
     const messageId = uuidv4()
     database.queueMessage(messageId, senderId, recipient.id, encryptedPayload)
 

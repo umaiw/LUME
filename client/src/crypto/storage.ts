@@ -145,7 +145,7 @@ async function deriveKeyFromPin(
     {
       name: "PBKDF2",
       salt: saltBuffer,
-      iterations: 100000,
+      iterations: 600000,
       hash: "SHA-256",
     },
     keyMaterial,

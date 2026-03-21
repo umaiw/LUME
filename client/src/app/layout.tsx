@@ -4,6 +4,7 @@ import "./globals.css";
 import StatusBanner from "@/components/StatusBanner";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import OnlineStatus from "@/components/OnlineStatus";
+import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 
 export const metadata: Metadata = {
   title: "L U M E",
@@ -11,6 +12,12 @@ export const metadata: Metadata = {
   description: "L U M E - private messages and privacy by default",
   keywords: ["messenger", "secure", "encrypted", "anonymous", "e2ee", "lume"],
   authors: [{ name: "Lume Team" }],
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "LUME",
+  },
   icons: {
     icon: "/lume-icon.png",
     shortcut: "/lume-icon.png",
@@ -61,6 +68,7 @@ export default async function RootLayout({
           }}
         />
         <div className="min-h-screen flex flex-col">
+          <ServiceWorkerRegistration />
           <OnlineStatus />
           <ErrorBoundary>
             <StatusBanner />
