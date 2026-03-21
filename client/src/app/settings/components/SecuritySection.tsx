@@ -115,6 +115,7 @@ export default function SecuritySection({
               <Input
                 type="password"
                 placeholder="Current PIN"
+                aria-label="Current PIN"
                 value={currentPin}
                 onChange={(e) => setCurrentPin(e.target.value)}
                 autoFocus
@@ -122,12 +123,14 @@ export default function SecuritySection({
               <Input
                 type="password"
                 placeholder="New PIN"
+                aria-label="New PIN"
                 value={newPin}
                 onChange={(e) => setNewPin(e.target.value)}
               />
               <Input
                 type="password"
                 placeholder="Confirm New PIN"
+                aria-label="Confirm new PIN"
                 value={confirmPin}
                 onChange={(e) => setConfirmPin(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && void handleChangePin()}

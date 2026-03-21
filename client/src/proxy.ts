@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Middleware that generates a per-request CSP nonce and sets
+ * Proxy that generates a per-request CSP nonce and sets
  * Content-Security-Policy + other security headers on every response.
  *
  * Next.js App Router reads the nonce from the `x-nonce` request header
  * and automatically injects it into its own inline scripts.
  */
-export function middleware(request: NextRequest): NextResponse {
+export function proxy(request: NextRequest): NextResponse {
   // Generate a random nonce (128-bit, base64-encoded)
   const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64");
 
@@ -16,12 +16,18 @@ export function middleware(request: NextRequest): NextResponse {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
 
+  // Allow API/WS connections to the backend origin (may differ in port during dev)
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+  const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001/ws";
+  const apiOrigin = new URL(apiUrl).origin;
+  const wsOrigin = new URL(wsUrl).origin.replace(/^http/, "ws");
+
   // Build CSP directives
   const cspDirectives = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
     "style-src 'self' 'unsafe-inline'", // Tailwind needs inline styles
-    "connect-src 'self' ws: wss:",      // WebSocket connections
+    `connect-src 'self' ${apiOrigin} ${wsOrigin} ws: wss:`,
     "img-src 'self' data: blob:",
     "font-src 'self'",
     "object-src 'none'",
@@ -51,7 +57,7 @@ export function middleware(request: NextRequest): NextResponse {
 }
 
 /**
- * Apply middleware to all page routes (skip static assets and Next.js internals).
+ * Apply proxy to all page routes (skip static assets and Next.js internals).
  */
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico|lume-icon\\.png).*)"],

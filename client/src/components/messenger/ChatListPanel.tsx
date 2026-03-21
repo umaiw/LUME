@@ -335,6 +335,7 @@ export default function ChatListPanel({
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={modeScopedChats.length > 0 ? 'Search...' : 'No chats yet'}
               disabled={modeScopedChats.length === 0}
+              aria-label="Search chats"
               className="apple-input apple-input-icon disabled:opacity-60 disabled:cursor-not-allowed"
             />
           </div>
@@ -378,6 +379,7 @@ export default function ChatListPanel({
               if (hiddenPinError) setHiddenPinError('');
             }}
             placeholder="Hidden chats PIN"
+            aria-label="Hidden chats PIN"
             autoFocus
             error={hiddenPinError || undefined}
             onKeyDown={(e) => {

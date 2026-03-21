@@ -14,13 +14,13 @@ const nextConfig: NextConfig = {
     },
   },
 
-  // Подавляем React DevTools warning в production
+  // Suppress React DevTools warning in production
   reactStrictMode: true,
 
-  // Отключаем x-powered-by заголовок
+  // Disable x-powered-by header
   poweredByHeader: false,
 
-  // Безопасные заголовки
+  // Security headers
   headers: async () => [
     {
       source: "/(.*)",

@@ -349,10 +349,11 @@ export function useMessengerSync() {
   };
 
   // Gate side-effects until auth store has finished rehydrating from storage.
+  // Both snapshots use the same fallback so SSR and client agree when persist is absent.
   const hydrated = useSyncExternalStore(
     (onStoreChange) => useAuthStore.subscribe(() => onStoreChange()),
     () => (useAuthStore as unknown as PersistHydration).persist?.hasHydrated?.() ?? true,
-    () => false
+    () => (useAuthStore as unknown as PersistHydration).persist?.hasHydrated?.() ?? true
   );
 
   useEffect(() => {

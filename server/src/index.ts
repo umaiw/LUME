@@ -171,7 +171,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   if (err.message !== 'Origin not allowed') {
     console.error('Unhandled error:', err instanceof Error ? err.message : String(err))
   }
-  res.status(500).json({ error: 'Internal server error' })
+  res.status(500).json({ error: 'Unexpected server error' })
 })
 
 // === Server Startup =========================================================

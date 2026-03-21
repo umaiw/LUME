@@ -119,9 +119,10 @@ export default function MobileSwipeShell({ profilePanel, chatListPanel }: Mobile
   const baseTranslate = activePanel === 0 ? 0 : -50; // percent of 200vw container
 
   // Convert px drag offset into percent of 200vw (1vw = window.innerWidth / 100).
-  // On the server there's no window — guard accordingly.
   const dragPercent =
-    typeof window !== 'undefined' ? (dragOffset / (window.innerWidth * 2)) * 100 : 0;
+    dragOffset !== 0 && typeof window !== 'undefined'
+      ? (dragOffset / (window.innerWidth * 2)) * 100
+      : 0;
 
   const translateX = `${baseTranslate + dragPercent}%`;
 

@@ -143,18 +143,20 @@ export default function RecoverPage() {
           {step === 'phrase' && (
             <>
               <div className="mb-6">
-                <label className="block apple-label mb-2">Username</label>
+                <label htmlFor="recover-username" className="block apple-label mb-2">Username</label>
                 <div className="relative mb-4">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">@</span>
                   <input
+                    id="recover-username"
                     value={username}
                     onChange={(e) => setUsername(e.target.value.replace(/^@+/, '').trim())}
                     placeholder="username"
                     className="apple-input apple-input-icon"
                   />
                 </div>
-                <label className="block apple-label mb-2">Recovery Phrase</label>
+                <label htmlFor="recover-mnemonic" className="block apple-label mb-2">Recovery Phrase</label>
                 <textarea
+                  id="recover-mnemonic"
                   value={mnemonic}
                   onChange={(e) => setMnemonic(e.target.value)}
                   placeholder="Enter your words"
@@ -182,8 +184,9 @@ export default function RecoverPage() {
           {step === 'pin' && (
             <>
               <div className="mb-6">
-                <label className="block apple-label mb-2">New PIN</label>
+                <label htmlFor="recover-pin" className="block apple-label mb-2">New PIN</label>
                 <input
+                  id="recover-pin"
                   type="password"
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
@@ -191,8 +194,9 @@ export default function RecoverPage() {
                   className="apple-input mb-4"
                 />
 
-                <label className="block apple-label mb-2">Repeat PIN</label>
+                <label htmlFor="recover-pin-confirm" className="block apple-label mb-2">Repeat PIN</label>
                 <input
+                  id="recover-pin-confirm"
                   type="password"
                   value={pinConfirm}
                   onChange={(e) => setPinConfirm(e.target.value)}

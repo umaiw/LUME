@@ -64,7 +64,7 @@ export default function ChatsPage() {
         leftRail={<div className="h-full" />}
         chatList={<ChatListSkeleton />}
         main={
-          <div className="lume-panel h-full rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] flex items-center justify-center">
+          <div aria-busy="true" className="lume-panel h-full rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] flex items-center justify-center">
             <div className="w-8 h-8 border-2 mono-spinner rounded-full animate-spin" />
           </div>
         }
@@ -241,6 +241,7 @@ export default function ChatsPage() {
             value={backupPin}
             onChange={(e) => setBackupPin(e.target.value)}
             placeholder="Enter PIN"
+            aria-label="Backup PIN"
             className="apple-input text-center tracking-[0.2em]"
           />
           <Button
@@ -277,6 +278,7 @@ export default function ChatsPage() {
               className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-xs p-3 font-mono"
               rows={5}
               readOnly
+              aria-label="Exported backup data"
               value={backupOutput}
             />
           )}
@@ -286,6 +288,7 @@ export default function ChatsPage() {
               className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-xs p-3 font-mono"
               rows={4}
               placeholder="Paste encrypted backup here"
+              aria-label="Import backup data"
               value={importInput}
               onChange={(e) => setImportInput(e.target.value.trim())}
             />

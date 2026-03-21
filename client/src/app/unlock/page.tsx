@@ -218,8 +218,9 @@ export default function UnlockPage() {
 
         <div className="auth-card lume-panel p-6 sm:p-8">
           <div className="mb-6">
-            <label className="block apple-label mb-2 text-center">PIN</label>
+            <label htmlFor="unlock-pin" className="block apple-label mb-2 text-center">PIN</label>
             <input
+              id="unlock-pin"
               type="password"
               value={pin}
               onChange={(e) => setPin(e.target.value)}

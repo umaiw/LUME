@@ -230,7 +230,7 @@ export default function SetupPage() {
           )}
 
           {step === "generate" && (
-            <div className="text-center py-10">
+            <div className="text-center py-10" aria-busy="true">
               <div className="w-10 h-10 mx-auto mb-6 border-2 mono-spinner rounded-full animate-spin" />
               <p className="text-[var(--text-secondary)] text-sm">
                 Generating keys...
@@ -297,10 +297,11 @@ export default function SetupPage() {
               <div className="space-y-5 mb-8">
                 {verifyPositions.map((pos, index) => (
                   <div key={pos}>
-                    <label className="block text-xs uppercase tracking-[0.08em] text-[var(--text-muted)] mb-2">
+                    <label htmlFor={`verify-word-${pos}`} className="block text-xs uppercase tracking-[0.08em] text-[var(--text-muted)] mb-2">
                       Word #{pos + 1}
                     </label>
                     <input
+                      id={`verify-word-${pos}`}
                       type="text"
                       value={verifyAnswers[index]}
                       onChange={(e) => {
@@ -351,12 +352,13 @@ export default function SetupPage() {
               </div>
 
               <div className="mb-8">
-                <label className="block apple-label mb-2">Username</label>
+                <label htmlFor="setup-username" className="block apple-label mb-2">Username</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
                     @
                   </span>
                   <input
+                    id="setup-username"
                     type="text"
                     value={username}
                     onChange={(e) => checkUsername(e.target.value)}
@@ -394,8 +396,9 @@ export default function SetupPage() {
 
               <div className="space-y-5 mb-8">
                 <div>
-                  <label className="block apple-label mb-2">PIN</label>
+                  <label htmlFor="setup-pin" className="block apple-label mb-2">PIN</label>
                   <input
+                    id="setup-pin"
                     type="password"
                     value={pin}
                     onChange={(e) => setPin(e.target.value)}
@@ -404,8 +407,9 @@ export default function SetupPage() {
                   />
                 </div>
                 <div>
-                  <label className="block apple-label mb-2">Repeat PIN</label>
+                  <label htmlFor="setup-pin-confirm" className="block apple-label mb-2">Repeat PIN</label>
                   <input
+                    id="setup-pin-confirm"
                     type="password"
                     value={pinConfirm}
                     onChange={(e) => setPinConfirm(e.target.value)}

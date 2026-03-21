@@ -179,6 +179,7 @@ function MessageBubble({
             type="button"
             onClick={() => onReply(message)}
             className="hover:!opacity-100 p-1"
+            aria-label="Reply"
             title="Reply"
           >
             <svg className="w-4 h-4 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -189,6 +190,7 @@ function MessageBubble({
             type="button"
             onClick={() => setShowActions(!showActions)}
             className="hover:!opacity-100 p-1"
+            aria-label="Delete message"
             title="Delete message"
           >
             <svg className="w-4 h-4 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -283,6 +285,7 @@ function MessageBubble({
             type="button"
             onClick={() => onReply(message)}
             className="hover:!opacity-100 p-1"
+            aria-label="Reply"
             title="Reply"
           >
             <svg className="w-4 h-4 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -293,6 +296,7 @@ function MessageBubble({
             type="button"
             onClick={() => setShowActions(!showActions)}
             className="hover:!opacity-100 p-1"
+            aria-label="Delete message"
             title="Delete message"
           >
             <svg className="w-4 h-4 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -703,7 +707,7 @@ export default function ChatPage({ params }: ChatPageProps) {
         leftRail={<div className="h-full" />}
         chatList={<ChatListSkeleton />}
         main={
-          <div className="lume-panel h-full rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] overflow-hidden flex flex-col">
+          <div aria-busy="true" className="lume-panel h-full rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] overflow-hidden flex flex-col">
             <div className="px-5 pt-5 pb-4 border-b border-[var(--border)]/70">
               <div className="flex items-center gap-3">
                 <span className="block w-10 h-10 rounded-full bg-[var(--surface-alt)] animate-pulse" />
@@ -955,6 +959,7 @@ export default function ChatPage({ params }: ChatPageProps) {
               onKeyDown={handleKeyDown}
               placeholder="Type message..."
               rows={1}
+              aria-label="Message input"
               className="w-full px-4 py-3 bg-[var(--surface-strong)] rounded-full border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] resize-none shadow-[var(--shadow-sm)] text-[16px] leading-snug"
               style={{ minHeight: "48px", maxHeight: "140px" }}
             />
@@ -1259,6 +1264,7 @@ export default function ChatPage({ params }: ChatPageProps) {
             value={backupPin}
             onChange={(e) => setBackupPin(e.target.value)}
             placeholder="Enter PIN"
+            aria-label="Backup PIN"
             className="apple-input text-center tracking-[0.2em]"
           />
           <Button
@@ -1295,6 +1301,7 @@ export default function ChatPage({ params }: ChatPageProps) {
               className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-xs p-3 font-mono"
               rows={5}
               readOnly
+              aria-label="Exported backup data"
               value={backupOutput}
             />
           )}
@@ -1304,6 +1311,7 @@ export default function ChatPage({ params }: ChatPageProps) {
               className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-xs p-3 font-mono"
               rows={4}
               placeholder="Paste encrypted backup here"
+              aria-label="Import backup data"
               value={importInput}
               onChange={(e) => setImportInput(e.target.value.trim())}
             />

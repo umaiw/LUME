@@ -16,7 +16,7 @@ export default function StatusBanner() {
         : 'text-[var(--text-secondary)]';
 
     return (
-      <div className={`w-full px-3 py-2 text-xs sm:text-sm text-center font-medium transition-colors duration-300 bg-[var(--surface)] border-b border-[var(--border)] ${tone}`}>
+      <div role="status" aria-live="polite" className={`w-full px-3 py-2 text-xs sm:text-sm text-center font-medium transition-colors duration-300 bg-[var(--surface)] border-b border-[var(--border)] ${tone}`}>
         {cryptoBanner.message}
       </div>
     );
@@ -53,7 +53,7 @@ export default function StatusBanner() {
   }
 
   return (
-    <div className={`w-full px-3 py-2 text-xs sm:text-sm text-center font-medium transition-colors duration-300 ${bg} ${tone} border-b border-[var(--border)]`}>
+    <div role="status" aria-live="polite" className={`w-full px-3 py-2 text-xs sm:text-sm text-center font-medium transition-colors duration-300 ${bg} ${tone} border-b border-[var(--border)]`}>
       {content}
     </div>
   );

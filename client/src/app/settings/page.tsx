@@ -82,7 +82,7 @@ export default function SettingsPage() {
             leftRail={<div className="h-full" />}
             chatList={<SettingsSkeleton />}
             main={
-              <div className="lume-panel h-full rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] flex items-center justify-center">
+              <div aria-busy="true" className="lume-panel h-full rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] flex items-center justify-center">
                 <div className="w-8 h-8 border-2 mono-spinner rounded-full animate-spin" />
               </div>
             }

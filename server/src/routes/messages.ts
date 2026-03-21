@@ -227,7 +227,7 @@ router.post('/send', requireSignature, sendRateLimit, (req: Request, res: Respon
     })
   } catch (error) {
     console.error('Send message error:', error instanceof Error ? error.message : String(error))
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ error: 'Failed to send message' })
   }
 })
 
@@ -266,7 +266,7 @@ router.get('/pending/:userId', requireSignature, (req: Request, res: Response) =
       'Get pending messages error:',
       error instanceof Error ? error.message : String(error)
     )
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ error: 'Failed to retrieve pending messages' })
   }
 })
 
@@ -306,7 +306,7 @@ router.delete('/:messageId', requireSignature, (req: Request, res: Response) => 
       'Acknowledge message error:',
       error instanceof Error ? error.message : String(error)
     )
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ error: 'Failed to acknowledge message' })
   }
 })
 
@@ -341,7 +341,7 @@ router.post('/acknowledge', requireSignature, (req: Request, res: Response) => {
       'Batch acknowledge error:',
       error instanceof Error ? error.message : String(error)
     )
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ error: 'Failed to acknowledge messages' })
   }
 })
 

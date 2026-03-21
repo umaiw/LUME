@@ -53,6 +53,9 @@ export function Modal({
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
 
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         className={`
           relative w-full ${sizes[size]}
           bg-[var(--surface)] rounded-t-2xl sm:rounded-2xl

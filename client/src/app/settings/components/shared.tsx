@@ -39,6 +39,7 @@ export function ToggleRow({
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-label={label}
         onClick={() => onChange(!checked)}
         className={`
           relative w-11 h-6 rounded-full border transition-colors shrink-0

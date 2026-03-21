@@ -41,6 +41,7 @@ export default async function RootLayout({
       <body className="antialiased min-h-screen">
         <script
           nonce={nonce}
+          suppressHydrationWarning
           // Set theme before React hydration to avoid a flash.
           dangerouslySetInnerHTML={{
             __html: `

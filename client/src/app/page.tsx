@@ -22,7 +22,7 @@ export default function HomePage() {
 
   if (checking) {
     return (
-      <div className="auth-shell">
+      <div className="auth-shell" aria-busy="true">
         <div className="w-8 h-8 border-2 mono-spinner rounded-full animate-spin" />
       </div>
     );

@@ -210,7 +210,7 @@ router.post('/register', registerRateLimit, (req: Request, res: Response) => {
       }
     }
     console.error('Registration error:', error instanceof Error ? error.message : String(error))
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ error: 'Failed to register account' })
   }
 })
 
@@ -247,7 +247,7 @@ router.get(
       res.json(response)
     } catch (error) {
       console.error('Get user error:', error instanceof Error ? error.message : String(error))
-      res.status(500).json({ error: 'Internal server error' })
+      res.status(500).json({ error: 'Failed to retrieve user profile' })
     }
   }
 )
@@ -322,7 +322,7 @@ router.post('/bundle', requireSignature, bundleRateLimit, (req: Request, res: Re
     })
   } catch (error) {
     console.error('Get bundle error:', error instanceof Error ? error.message : String(error))
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ error: 'Failed to retrieve prekey bundle' })
   }
 })
 
@@ -340,7 +340,7 @@ router.get('/check/:username', usernameCheckRateLimit, (req: Request, res: Respo
     res.json({ available: !user })
   } catch (error) {
     console.error('Check username error:', error instanceof Error ? error.message : String(error))
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ error: 'Failed to check username availability' })
   }
 })
 
@@ -390,7 +390,7 @@ router.post('/prekeys', requireSignature, (req: Request, res: Response) => {
     })
   } catch (error) {
     console.error('Upload prekeys error:', error instanceof Error ? error.message : String(error))
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ error: 'Failed to upload prekeys' })
   }
 })
 
@@ -437,7 +437,7 @@ router.post('/keys', requireSignature, keysRateLimit, (req: Request, res: Respon
       'Update signed prekey error:',
       error instanceof Error ? error.message : String(error)
     )
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ error: 'Failed to update signed prekey' })
   }
 })
 
@@ -467,7 +467,7 @@ router.delete('/user/:userId', requireSignature, (req: Request, res: Response) =
     audit('delete_user', { userId })
   } catch (error) {
     console.error('Delete user error:', error instanceof Error ? error.message : String(error))
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ error: 'Failed to delete account' })
   }
 })
 
@@ -503,7 +503,7 @@ router.post('/session', requireSignature, sessionRateLimit, (req: Request, res: 
     audit('session_issue', { userId })
   } catch (error) {
     console.error('Session error:', error instanceof Error ? error.message : String(error))
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ error: 'Failed to create session' })
   }
 })
 
@@ -542,7 +542,7 @@ router.post('/block', requireSignature, (req: Request, res: Response) => {
     res.json({ ok: true })
   } catch (error) {
     console.error('Block error:', error instanceof Error ? error.message : String(error))
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ error: 'Failed to block user' })
   }
 })
 
@@ -568,7 +568,7 @@ router.post('/unblock', requireSignature, (req: Request, res: Response) => {
     res.json({ ok: true })
   } catch (error) {
     console.error('Unblock error:', error instanceof Error ? error.message : String(error))
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ error: 'Failed to unblock user' })
   }
 })
 
@@ -590,7 +590,7 @@ router.get('/blocked', requireSignature, keysRateLimit, (req: Request, res: Resp
       'Get blocked users error:',
       error instanceof Error ? error.message : String(error)
     )
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ error: 'Failed to retrieve blocked users list' })
   }
 })
 

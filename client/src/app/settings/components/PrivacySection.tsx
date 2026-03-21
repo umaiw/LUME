@@ -235,6 +235,7 @@ export default function PrivacySection({
             <Input
               type="password"
               placeholder="Current hidden PIN"
+              aria-label="Current hidden PIN"
               value={hiddenCurrentPin}
               onChange={(e) => setHiddenCurrentPin(e.target.value)}
               autoFocus
@@ -245,6 +246,7 @@ export default function PrivacySection({
             <Input
               type="password"
               placeholder="Account PIN"
+              aria-label="Account PIN"
               value={hiddenAccountPin}
               onChange={(e) => setHiddenAccountPin(e.target.value)}
               autoFocus
@@ -254,6 +256,7 @@ export default function PrivacySection({
           <Input
             type="password"
             placeholder="New hidden PIN"
+            aria-label="New hidden PIN"
             value={hiddenPin}
             onChange={(e) => setHiddenPin(e.target.value)}
             autoFocus={hiddenPinMode === "setup"}
@@ -261,6 +264,7 @@ export default function PrivacySection({
           <Input
             type="password"
             placeholder="Confirm new hidden PIN"
+            aria-label="Confirm new hidden PIN"
             value={hiddenPinConfirm}
             onChange={(e) => setHiddenPinConfirm(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && void handleSubmitHiddenPin()}

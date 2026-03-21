@@ -47,7 +47,7 @@ function ChatRowSkeleton() {
 /* ──────────── ChatListSkeleton ──────────── */
 export function ChatListSkeleton({ rows = 6 }: { rows?: number }) {
   return (
-    <div className="lume-panel h-full min-h-0 rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] overflow-hidden">
+    <div aria-busy="true" className="lume-panel h-full min-h-0 rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] overflow-hidden">
       {/* Header */}
       <div className="px-5 pt-5 pb-4 border-b border-[var(--border)]/70">
         <div className="flex items-center justify-between gap-3">
@@ -103,7 +103,7 @@ export function MessagesSkeleton({ count = 8 }: { count?: number }) {
   ) as ("left" | "right")[];
 
   return (
-    <div className="flex-1 min-h-0 overflow-hidden px-6 py-6 space-y-1">
+    <div aria-busy="true" className="flex-1 min-h-0 overflow-hidden px-6 py-6 space-y-1">
       {pattern.map((align, i) => (
         <BubbleSkeleton key={i} align={align} index={i} />
       ))}
@@ -114,7 +114,7 @@ export function MessagesSkeleton({ count = 8 }: { count?: number }) {
 /* ──────────── Settings panel skeleton ──────────── */
 export function SettingsSkeleton() {
   return (
-    <div className="lume-panel h-full rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] overflow-hidden flex flex-col">
+    <div aria-busy="true" className="lume-panel h-full rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] overflow-hidden flex flex-col">
       <div className="px-6 pt-6 pb-5 border-b border-[var(--border)]/70">
         <Shimmer className="h-3 w-16" />
       </div>
