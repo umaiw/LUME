@@ -233,7 +233,6 @@ describe('maskMnemonic', () => {
 
     // Inner words (index 1 to length-2) should not appear literally
     for (let i = 1; i < words.length - 1; i++) {
-      const occurrences = maskedParts.filter((p) => p === words[i]);
       // Word might coincidentally appear at position 0 or last; just check middle masked parts
       const middleMaskedParts = maskedParts.slice(1, maskedParts.length - 1);
       const literalInMiddle = middleMaskedParts.some(

@@ -6,7 +6,6 @@ import React, {
   useCallback,
   useState,
   type ReactNode,
-  type RefObject,
 } from 'react';
 
 /* ------------------------------------------------------------------ */
@@ -284,7 +283,7 @@ export default function AntigravityField({
   );
 
   const onPointerUp = useCallback(
-    (i: number, _e: React.PointerEvent) => {
+    (i: number) => {
       const body = bodiesRef.current[i];
       if (!body) return;
       body.dragging = false;
@@ -322,8 +321,8 @@ export default function AntigravityField({
           }}
           onPointerDown={(e) => onPointerDown(i, e)}
           onPointerMove={(e) => onPointerMove(i, e)}
-          onPointerUp={(e) => onPointerUp(i, e)}
-          onPointerCancel={(e) => onPointerUp(i, e)}
+          onPointerUp={() => onPointerUp(i)}
+          onPointerCancel={() => onPointerUp(i)}
         >
           {child}
         </div>
