@@ -3,63 +3,63 @@
 :root {
   color-scheme: light;
 
-  /* Core palette (strict monochrome, allow subtle grays for UX) */
-  --background: #f5f5f5;
-  --foreground: #0b0b0b;
+  /* Core palette — warm earthy tones */
+  --background: #F0E1D1;
+  --foreground: #562114;
 
   --surface: rgba(255, 255, 255, 0.92);
-  --surface-strong: #ffffff;
-  --surface-alt: rgba(11, 11, 11, 0.04);
-  --border: rgba(11, 11, 11, 0.12);
+  --surface-strong: #fffaf6;
+  --surface-alt: rgba(86, 33, 20, 0.05);
+  --border: rgba(188, 186, 174, 0.45);
 
-  --text-primary: #0b0b0b;
-  --text-secondary: rgba(11, 11, 11, 0.72);
-  --text-muted: rgba(11, 11, 11, 0.48);
-  --muted: rgba(11, 11, 11, 0.48);
+  --text-primary: #562114;
+  --text-secondary: rgba(86, 33, 20, 0.72);
+  --text-muted: #BCBAAE;
+  --muted: #BCBAAE;
 
-  /* Accent flips between themes (black on light, white on dark) */
-  --accent: #0b0b0b;
-  --accent-hover: #141414;
-  --accent-active: #000000;
-  --accent-disabled: rgba(11, 11, 11, 0.25);
+  /* Accent — warm orange-brown */
+  --accent: #B7410E;
+  --accent-hover: #8E270E;
+  --accent-active: #562114;
+  --accent-disabled: rgba(183, 65, 14, 0.3);
   --accent-contrast: #ffffff;
-  --error: #0b0b0b;
+  --error: #B7410E;
 
-  --shadow-sm: 0 12px 34px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 28px 80px rgba(0, 0, 0, 0.16);
+  --shadow-sm: 0 12px 34px rgba(86, 33, 20, 0.1);
+  --shadow-lg: 0 28px 80px rgba(86, 33, 20, 0.16);
 
   --radius-lg: 22px;
   --radius-md: 16px;
-  --focus-ring: rgba(11, 11, 11, 0.16);
+  --focus-ring: rgba(183, 65, 14, 0.2);
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --background: #050505;
-  --foreground: #f7f7f7;
+  --background: #1a0f0b;
+  --foreground: #F0E1D1;
 
-  --surface: rgba(15, 15, 15, 0.88);
-  --surface-strong: #0f0f0f;
-  --surface-alt: rgba(247, 247, 247, 0.06);
-  --border: rgba(247, 247, 247, 0.14);
+  --surface: rgba(42, 26, 20, 0.88);
+  --surface-strong: #2a1a14;
+  --surface-alt: rgba(240, 225, 209, 0.06);
+  --border: rgba(188, 186, 174, 0.18);
 
-  --text-primary: #f7f7f7;
-  --text-secondary: rgba(247, 247, 247, 0.78);
-  --text-muted: rgba(247, 247, 247, 0.52);
-  --muted: rgba(247, 247, 247, 0.52);
+  --text-primary: #F0E1D1;
+  --text-secondary: #BCBAAE;
+  --text-muted: rgba(188, 186, 174, 0.55);
+  --muted: rgba(188, 186, 174, 0.55);
 
-  --accent: #f7f7f7;
-  --accent-hover: #ffffff;
-  --accent-active: #e8e8e8;
-  --accent-disabled: rgba(247, 247, 247, 0.25);
-  --accent-contrast: #050505;
-  --error: #f7f7f7;
+  --accent: #B7410E;
+  --accent-hover: #cf4f16;
+  --accent-active: #8E270E;
+  --accent-disabled: rgba(183, 65, 14, 0.3);
+  --accent-contrast: #ffffff;
+  --error: #B7410E;
 
   --shadow-sm: 0 12px 34px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 28px 80px rgba(0, 0, 0, 0.7);
 
-  --focus-ring: rgba(255, 255, 255, 0.16);
+  --focus-ring: rgba(183, 65, 14, 0.25);
 }
 
 @theme inline {
@@ -83,7 +83,8 @@
 
   --shadow-sm: var(--shadow-sm);
 
-  --font-sans: "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
+  --font-sans: var(--font-outfit), "Outfit", "Avenir Next", "Segoe UI", sans-serif;
+  --font-accent: var(--font-jost), "Jost", serif;
 }
 
 html,
@@ -99,15 +100,15 @@ body {
   overflow-x: hidden;
   color: var(--foreground);
   background:
-    radial-gradient(1200px 800px at 12% -10%, rgba(11, 11, 11, 0.06), transparent 60%),
-    radial-gradient(1000px 700px at 110% 20%, rgba(11, 11, 11, 0.04), transparent 55%),
+    radial-gradient(1200px 800px at 12% -10%, rgba(86, 33, 20, 0.06), transparent 60%),
+    radial-gradient(1000px 700px at 110% 20%, rgba(86, 33, 20, 0.04), transparent 55%),
     var(--background);
 }
 
 [data-theme="dark"] body {
   background:
-    radial-gradient(1100px 760px at 18% -10%, rgba(247, 247, 247, 0.07), transparent 60%),
-    radial-gradient(900px 650px at 110% 30%, rgba(247, 247, 247, 0.05), transparent 55%),
+    radial-gradient(1100px 760px at 18% -10%, rgba(183, 65, 14, 0.08), transparent 60%),
+    radial-gradient(900px 650px at 110% 30%, rgba(183, 65, 14, 0.05), transparent 55%),
     var(--background);
 }
 
@@ -250,7 +251,7 @@ body {
 }
 
 [data-theme="dark"] .apple-button:disabled {
-  color: rgba(5, 5, 5, 0.72);
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .apple-button-secondary {
@@ -271,11 +272,11 @@ body {
 }
 
 .apple-button-secondary:hover {
-  background: rgba(11, 11, 11, 0.06);
+  background: rgba(86, 33, 20, 0.06);
 }
 
 [data-theme="dark"] .apple-button-secondary:hover {
-  background: rgba(247, 247, 247, 0.1);
+  background: rgba(240, 225, 209, 0.1);
 }
 
 .apple-link {
@@ -323,12 +324,12 @@ body {
 }
 
 .mono-spinner {
-  border-color: rgba(11, 11, 11, 0.25);
+  border-color: rgba(86, 33, 20, 0.25);
   border-top-color: var(--accent);
 }
 
 [data-theme="dark"] .mono-spinner {
-  border-color: rgba(247, 247, 247, 0.25);
+  border-color: rgba(240, 225, 209, 0.25);
   border-top-color: var(--accent);
 }
 
@@ -380,16 +381,16 @@ body {
   border-radius: inherit;
   pointer-events: none;
   background:
-    radial-gradient(520px 280px at 18% -10%, rgba(11, 11, 11, 0.06), transparent 60%),
-    radial-gradient(420px 320px at 120% 22%, rgba(11, 11, 11, 0.04), transparent 60%),
-    linear-gradient(to bottom, rgba(11, 11, 11, 0.03), transparent 44%);
+    radial-gradient(520px 280px at 18% -10%, rgba(86, 33, 20, 0.06), transparent 60%),
+    radial-gradient(420px 320px at 120% 22%, rgba(86, 33, 20, 0.04), transparent 60%),
+    linear-gradient(to bottom, rgba(86, 33, 20, 0.03), transparent 44%);
 }
 
 [data-theme="dark"] .lume-rail::before {
   background:
-    radial-gradient(520px 280px at 18% -10%, rgba(247, 247, 247, 0.07), transparent 60%),
-    radial-gradient(420px 320px at 120% 22%, rgba(247, 247, 247, 0.05), transparent 60%),
-    linear-gradient(to bottom, rgba(247, 247, 247, 0.04), transparent 44%);
+    radial-gradient(520px 280px at 18% -10%, rgba(183, 65, 14, 0.07), transparent 60%),
+    radial-gradient(420px 320px at 120% 22%, rgba(183, 65, 14, 0.05), transparent 60%),
+    linear-gradient(to bottom, rgba(183, 65, 14, 0.04), transparent 44%);
 }
 
 .lume-rail > * {
@@ -409,13 +410,13 @@ body {
 .lume-avatar {
   background:
     radial-gradient(44px 44px at 28% 24%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 70%),
-    radial-gradient(60px 60px at 78% 86%, rgba(11, 11, 11, 0.08), transparent 72%),
+    radial-gradient(60px 60px at 78% 86%, rgba(86, 33, 20, 0.08), transparent 72%),
     var(--surface-strong);
 }
 
 [data-theme="dark"] .lume-avatar {
   background:
-    radial-gradient(44px 44px at 28% 24%, rgba(247, 247, 247, 0.16), rgba(247, 247, 247, 0) 70%),
+    radial-gradient(44px 44px at 28% 24%, rgba(240, 225, 209, 0.16), rgba(240, 225, 209, 0) 70%),
     radial-gradient(60px 60px at 78% 86%, rgba(0, 0, 0, 0.4), transparent 72%),
     var(--surface-strong);
 }
@@ -447,16 +448,16 @@ body {
   border-radius: inherit;
   pointer-events: none;
   background:
-    radial-gradient(520px 280px at 16% -10%, rgba(11, 11, 11, 0.05), transparent 60%),
-    radial-gradient(420px 320px at 120% 22%, rgba(11, 11, 11, 0.04), transparent 60%),
-    linear-gradient(to bottom, rgba(11, 11, 11, 0.025), transparent 44%);
+    radial-gradient(520px 280px at 16% -10%, rgba(86, 33, 20, 0.05), transparent 60%),
+    radial-gradient(420px 320px at 120% 22%, rgba(86, 33, 20, 0.04), transparent 60%),
+    linear-gradient(to bottom, rgba(86, 33, 20, 0.025), transparent 44%);
 }
 
 [data-theme="dark"] .lume-panel::before {
   background:
-    radial-gradient(520px 280px at 16% -10%, rgba(247, 247, 247, 0.06), transparent 60%),
-    radial-gradient(420px 320px at 120% 22%, rgba(247, 247, 247, 0.045), transparent 60%),
-    linear-gradient(to bottom, rgba(247, 247, 247, 0.035), transparent 44%);
+    radial-gradient(520px 280px at 16% -10%, rgba(183, 65, 14, 0.06), transparent 60%),
+    radial-gradient(420px 320px at 120% 22%, rgba(183, 65, 14, 0.045), transparent 60%),
+    linear-gradient(to bottom, rgba(183, 65, 14, 0.035), transparent 44%);
 }
 
 .lume-panel > * {
@@ -506,6 +507,12 @@ body {
   .group .group-hover\:opacity-60 {
     opacity: 0.5;
   }
+}
+
+/* Accent font for slogans */
+.slogan {
+  font-family: var(--font-accent);
+  font-style: italic;
 }
 
 /* Prevent horizontal overflow on all pages */
