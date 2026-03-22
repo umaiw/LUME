@@ -1,6 +1,20 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
+import { Outfit, Jost } from "next/font/google";
 import "./globals.css";
+
+const outfit = Outfit({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-outfit",
+  display: "swap",
+});
+
+const jost = Jost({
+  subsets: ["latin"],
+  style: ["italic"],
+  variable: "--font-jost",
+  display: "swap",
+});
 import StatusBanner from "@/components/StatusBanner";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import OnlineStatus from "@/components/OnlineStatus";
@@ -31,8 +45,8 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f5f5f5" },
-    { media: "(prefers-color-scheme: dark)", color: "#050505" },
+    { media: "(prefers-color-scheme: light)", color: "#F0E1D1" },
+    { media: "(prefers-color-scheme: dark)", color: "#1a0f0b" },
   ],
 };
 
@@ -45,7 +59,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="antialiased min-h-screen">
+      <body className={`${outfit.variable} ${jost.variable} antialiased min-h-screen`}>
         <script
           nonce={nonce}
           suppressHydrationWarning

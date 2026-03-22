@@ -39,8 +39,8 @@ export default function HomePage() {
             <h1 className="text-2xl sm:text-3xl font-semibold uppercase tracking-[0.28em] text-[var(--text-primary)]">
               L U M E
             </h1>
-            <p className="mt-3 text-[11px] uppercase tracking-[0.28em] text-[var(--text-secondary)]">
-              Private by default
+            <p className="slogan mt-3 text-base sm:text-lg tracking-wide text-[var(--text-muted)]">
+              Rien que nous
             </p>
           </div>
 
