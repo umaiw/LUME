@@ -23,7 +23,9 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught:', error, errorInfo);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('ErrorBoundary caught:', error, errorInfo);
+    }
   }
 
   render() {
@@ -46,7 +48,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               Something went wrong
             </h2>
             <p className="text-[12px] text-[var(--text-muted)] mb-6">
-              {this.state.error?.message || 'An unexpected error occurred.'}
+              An unexpected error occurred.
             </p>
             <button
               onClick={() => {

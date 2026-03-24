@@ -113,6 +113,12 @@ function MessageBubble({
     return () => clearInterval(id);
   }, [message.selfDestructAt]);
 
+  useEffect(() => {
+    if (remaining !== null && remaining <= 0 && message.selfDestructAt) {
+      onDelete(message.id);
+    }
+  }, [remaining, message.id, message.selfDestructAt, onDelete]);
+
   return (
     <div className={`group flex ${isMine ? "justify-end" : "justify-start"}`}>
       {/* Action buttons — left of own messages */}

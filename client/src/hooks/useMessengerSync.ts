@@ -57,7 +57,10 @@ function withSenderLock<T>(senderId: string, fn: () => Promise<T>): Promise<T> {
 function loadBlockedIds(): string[] {
   try {
     const raw = localStorage.getItem('lume:blocked');
-    if (raw) return JSON.parse(raw) as string[];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((id): id is string => typeof id === 'string');
   } catch { /* ignore */ }
   return [];
 }

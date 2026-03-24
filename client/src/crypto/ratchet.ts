@@ -5,7 +5,7 @@
 
 import nacl from 'tweetnacl';
 import { encodeBase64, decodeBase64 } from 'tweetnacl-util';
-import { generateExchangeKeyPair, verify, type KeyPair } from './keys';
+import { generateExchangeKeyPair, verify, zeroBytes, type KeyPair } from './keys';
 import { hmac } from '@noble/hashes/hmac.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { hkdf, extract as hkdfExtract, expand as hkdfExpand } from '@noble/hashes/hkdf.js';
@@ -14,11 +14,6 @@ import { hkdf, extract as hkdfExtract, expand as hkdfExpand } from '@noble/hashe
 
 const MAX_SKIP = 200; // Максимальное количество пропущенных сообщений за один рывок
 const MAX_SKIPPED_KEYS = 500; // Максимальный размер хранилища пропущенных ключей
-
-/** Zero out a Uint8Array to prevent key material from lingering in memory. */
-function zeroBytes(arr: Uint8Array): void {
-    arr.fill(0);
-}
 
 // ==================== Типы ====================
 
@@ -98,8 +93,12 @@ function dh(keyPair: KeyPair, publicKey: string): Uint8Array {
     const secretKeyBytes = decodeBase64(keyPair.secretKey);
     const publicKeyBytes = decodeBase64(publicKey);
 
-    // Используем nacl.box.before для DH
-    return nacl.box.before(publicKeyBytes, secretKeyBytes);
+    try {
+        // Используем nacl.box.before для DH
+        return nacl.box.before(publicKeyBytes, secretKeyBytes);
+    } finally {
+        zeroBytes(secretKeyBytes);
+    }
 }
 
 // ==================== X3DH (Extended Triple Diffie-Hellman) ====================
@@ -238,6 +237,9 @@ export function initSenderSession(
     const dhKeyPair = generateExchangeKeyPair();
     const dhOutput = dh(dhKeyPair, recipientPublicKey);
     const { rootKey, chainKey } = kdfRk(sharedSecret, dhOutput);
+    zeroBytes(dhOutput);
+    // Note: caller is responsible for zeroing sharedSecret.
+    // In production, X3DH produces separate copies for each party.
 
     return {
         dhSendingKeyPair: dhKeyPair,
@@ -284,13 +286,19 @@ function dhRatchet(session: DoubleRatchetSession, headerPublicKey: string): void
 
     const dhOutput = dh(session.dhSendingKeyPair, headerPublicKey);
     const receiveResult = kdfRk(session.rootKey, dhOutput);
+    zeroBytes(dhOutput);
     session.rootKey = receiveResult.rootKey;
     session.receivingChainKey = receiveResult.chainKey;
+
+    // Zero old sending secret key before replacing the key pair
+    const oldSecretKeyBytes = decodeBase64(session.dhSendingKeyPair.secretKey);
+    zeroBytes(oldSecretKeyBytes);
 
     session.dhSendingKeyPair = generateExchangeKeyPair();
 
     const sendDhOutput = dh(session.dhSendingKeyPair, headerPublicKey);
     const sendResult = kdfRk(session.rootKey, sendDhOutput);
+    zeroBytes(sendDhOutput);
     session.rootKey = sendResult.rootKey;
     session.sendingChainKey = sendResult.chainKey;
 }
@@ -306,7 +314,9 @@ function skipMessageKeys(session: DoubleRatchetSession, until: number): void {
     }
 
     while (session.receivingMessageNumber < until) {
+        const oldReceivingChainKey = session.receivingChainKey;
         const { chainKey, messageKey } = kdfCk(session.receivingChainKey);
+        zeroBytes(oldReceivingChainKey);
         session.receivingChainKey = chainKey;
 
         const key = `${session.dhReceivingPublicKey}:${session.receivingMessageNumber}`;
@@ -337,7 +347,9 @@ export function ratchetEncrypt(
         throw new Error('Sending chain not initialized');
     }
 
+    const oldSendingChainKey = session.sendingChainKey;
     const { chainKey, messageKey } = kdfCk(session.sendingChainKey);
+    zeroBytes(oldSendingChainKey);
     session.sendingChainKey = chainKey;
 
     const header: MessageHeader = {

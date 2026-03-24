@@ -239,6 +239,7 @@ export interface User {
 }
 
 // Cache for getUsersByIds prepared statements keyed by number of IDs.
+const USERS_BY_IDS_CACHE_MAX = 50
 const getUsersByIdsCache = new Map<number, ReturnType<typeof db.prepare>>()
 
 export interface PendingMessage {
@@ -338,6 +339,11 @@ export const database = {
     // Cache prepared statements by arity to avoid re-preparing on every call.
     const key = userIds.length
     if (!getUsersByIdsCache.has(key)) {
+      if (getUsersByIdsCache.size >= USERS_BY_IDS_CACHE_MAX) {
+        // Evict oldest entry (first inserted key) to bound memory
+        const oldest = getUsersByIdsCache.keys().next().value
+        if (oldest !== undefined) getUsersByIdsCache.delete(oldest)
+      }
       const placeholders = userIds.map(() => '?').join(', ')
       getUsersByIdsCache.set(key, db.prepare(`SELECT * FROM users WHERE id IN (${placeholders})`))
     }

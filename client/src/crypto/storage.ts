@@ -21,6 +21,7 @@ const STORAGE_KEYS = {
   ENCRYPTION_SALT: "encryption_salt",
   HIDDEN_CHAT_PIN: "hidden_chat_pin",
   LOCKOUT: "lockout_state",
+  CHANGEPIN_BACKUP: "changepin_backup",
 } as const;
 
 interface EncryptedDataV1 {
@@ -589,7 +590,7 @@ async function persistLockoutState(): Promise<void> {
   }
 }
 
-async function checkPinLockout(): Promise<void> {
+export async function checkPinLockout(): Promise<void> {
   await loadLockoutState();
   if (lockedUntil > Date.now()) {
     const remaining = Math.ceil((lockedUntil - Date.now()) / 1000);
@@ -597,7 +598,7 @@ async function checkPinLockout(): Promise<void> {
   }
 }
 
-async function recordPinFailure(): Promise<void> {
+export async function recordPinFailure(): Promise<void> {
   failedPinAttempts++;
   for (let i = LOCKOUT_THRESHOLDS.length - 1; i >= 0; i--) {
     if (failedPinAttempts >= LOCKOUT_THRESHOLDS[i].attempts) {
@@ -608,7 +609,7 @@ async function recordPinFailure(): Promise<void> {
   await persistLockoutState();
 }
 
-async function resetPinFailures(): Promise<void> {
+export async function resetPinFailures(): Promise<void> {
   failedPinAttempts = 0;
   lockedUntil = 0;
   await persistLockoutState();
@@ -871,6 +872,27 @@ export async function changePin(oldPin: string, newPin: string): Promise<Uint8Ar
   const prekeys = await loadPreKeyMaterial(oldMasterKey);
   const settingsData = await loadSettings(oldMasterKey);
 
+  // Save backup of current encrypted data before overwriting.
+  // If changePin is interrupted (crash, tab close), the backup allows recovery.
+  const backupSnapshot: Record<string, unknown> = {};
+  for (const key of [
+    STORAGE_KEYS.IDENTITY,
+    STORAGE_KEYS.CONTACTS,
+    STORAGE_KEYS.CHATS,
+    STORAGE_KEYS.SESSIONS,
+    STORAGE_KEYS.PREKEYS,
+    STORAGE_KEYS.SETTINGS,
+    STORAGE_KEYS.PIN_HASH,
+    STORAGE_KEYS.ENCRYPTION_SALT,
+    STORAGE_KEYS.HIDDEN_CHAT_PIN,
+  ] as const) {
+    const val = await get(key);
+    if (val !== undefined) {
+      backupSnapshot[key] = val;
+    }
+  }
+  await set(STORAGE_KEYS.CHANGEPIN_BACKUP, backupSnapshot);
+
   // Generate a new encryption salt for new master key
   const newSalt = nacl.randomBytes(16);
   const newMasterKey = await deriveKeyFromPin(newPin, newSalt);
@@ -896,6 +918,9 @@ export async function changePin(oldPin: string, newPin: string): Promise<Uint8Ar
   if (settingsData.hiddenChatPinHash) {
     await saveSettings(settingsData, newMasterKey);
   }
+
+  // All writes succeeded — remove the backup
+  await del(STORAGE_KEYS.CHANGEPIN_BACKUP);
 
   // Zero out old key material
   oldMasterKey.fill(0);

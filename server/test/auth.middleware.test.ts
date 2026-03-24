@@ -10,7 +10,6 @@ import { encodeBase64 } from 'tweetnacl-util';
 import { requireSignature } from '../src/middleware/auth';
 import authRoutes from '../src/routes/auth';
 import messageRoutes from '../src/routes/messages';
-import database from '../src/db/database';
 
 // Helper to build signed headers for tests
 function signedHeaders(method: string, path: string, body: unknown, keyPair: nacl.SignKeyPair) {

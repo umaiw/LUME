@@ -204,10 +204,18 @@ export default function ChatListPanel({
     setShowHiddenChats(true);
   };
 
+  const [hiddenAttempts, setHiddenAttempts] = useState(0);
+  const [hiddenLockUntil, setHiddenLockUntil] = useState(0);
+
   const unlockHiddenChats = async () => {
     if (!hiddenChatPinHash) {
       setShowHiddenChats(true);
       setShowUnlockModal(false);
+      return;
+    }
+    if (hiddenLockUntil > Date.now()) {
+      const secs = Math.ceil((hiddenLockUntil - Date.now()) / 1000);
+      setHiddenPinError(`Too many attempts. Try again in ${secs}s`);
       return;
     }
     if (hiddenPin.trim().length < 4) {
@@ -216,9 +224,17 @@ export default function ChatListPanel({
     }
     const ok = await verifyHiddenChatPin(hiddenPin, hiddenChatPinHash);
     if (!ok) {
+      const next = hiddenAttempts + 1;
+      setHiddenAttempts(next);
+      setHiddenPin('');
+      if (next >= 5) {
+        const lockMs = Math.min(30000 * Math.pow(2, next - 5), 300000);
+        setHiddenLockUntil(Date.now() + lockMs);
+      }
       setHiddenPinError('Invalid hidden chats PIN');
       return;
     }
+    setHiddenAttempts(0);
     // Transparent migration: re-hash legacy PINs with stronger iterations
     if (isLegacyHiddenPinHash(hiddenChatPinHash)) {
       const newHash = await hashHiddenChatPin(hiddenPin);

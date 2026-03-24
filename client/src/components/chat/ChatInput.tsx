@@ -64,6 +64,7 @@ export default function ChatInput({
             onKeyDown={onKeyDown}
             placeholder="Type message..."
             rows={1}
+            maxLength={10000}
             aria-label="Message input"
             className="w-full px-4 py-3 bg-[var(--surface-strong)] rounded-full border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] resize-none shadow-[var(--shadow-sm)] text-[16px] leading-snug"
             style={{ minHeight: "48px", maxHeight: "140px" }}

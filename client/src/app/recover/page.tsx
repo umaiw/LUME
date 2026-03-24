@@ -117,10 +117,13 @@ export default function RecoverPage() {
         if (process.env.NODE_ENV !== 'production') console.warn('Prekey refill failed after recovery:', uploadError);
       }
 
+      setMnemonic('');
+      setPin('');
+      setPinConfirm('');
       setAuth(data.id, data.username, identity, masterKey);
       router.push('/chats');
     } catch (recoverError) {
-      console.error('Recovery error:', recoverError);
+      if (process.env.NODE_ENV !== 'production') console.error('Recovery error:', recoverError);
       setError('Recovery error');
     } finally {
       setLoading(false);

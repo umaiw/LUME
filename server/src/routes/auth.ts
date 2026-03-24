@@ -327,22 +327,27 @@ router.post('/bundle', requireSignature, bundleRateLimit, (req: Request, res: Re
 })
 
 // GET /auth/check/:username
-router.get('/check/:username', usernameCheckRateLimit, (req: Request, res: Response) => {
-  try {
-    const username = (req.params.username as string).trim()
+router.get(
+  '/check/:username',
+  requireSignature,
+  usernameCheckRateLimit,
+  (req: Request, res: Response) => {
+    try {
+      const username = (req.params.username as string).trim()
 
-    if (!isValidUsername(username)) {
-      res.json({ available: false, reason: 'Invalid format' })
-      return
+      if (!isValidUsername(username)) {
+        res.json({ available: false, reason: 'Invalid format' })
+        return
+      }
+
+      const user = database.getUserByUsername(username)
+      res.json({ available: !user })
+    } catch (error) {
+      console.error('Check username error:', error instanceof Error ? error.message : String(error))
+      res.status(500).json({ error: 'Failed to check username availability' })
     }
-
-    const user = database.getUserByUsername(username)
-    res.json({ available: !user })
-  } catch (error) {
-    console.error('Check username error:', error instanceof Error ? error.message : String(error))
-    res.status(500).json({ error: 'Failed to check username availability' })
   }
-})
+)
 
 // POST /auth/prekeys
 router.post('/prekeys', requireSignature, (req: Request, res: Response) => {
