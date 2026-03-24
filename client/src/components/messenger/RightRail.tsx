@@ -27,7 +27,7 @@ function AvatarButton({
       title={label}
       aria-label={label}
     >
-      {label[0].toUpperCase()}
+      {label[0]!.toUpperCase()}
     </button>
   );
 }

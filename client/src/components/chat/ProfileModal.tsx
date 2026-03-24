@@ -48,7 +48,7 @@ export default function ProfileModal({
     >
       <div className="flex flex-col items-center pt-2 pb-6">
         <div className="w-24 h-24 bg-[var(--surface-strong)] rounded-full flex items-center justify-center text-[var(--text-primary)] text-4xl font-semibold mb-4 border border-[var(--border)]">
-          {contact.username[0].toUpperCase()}
+          {contact.username[0]!.toUpperCase()}
         </div>
         <h2 className="text-[14px] font-semibold uppercase tracking-[0.14em] text-[var(--text-primary)] mb-1">
           @{contact.username}

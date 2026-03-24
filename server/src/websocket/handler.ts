@@ -46,8 +46,9 @@ function getClientIp(req: IncomingMessage): string {
     process.env.WS_TRUST_PROXY === 'true'
   const xForwardedFor = req.headers['x-forwarded-for']
   if (trustProxy && xForwardedFor) {
-    const ips = (Array.isArray(xForwardedFor) ? xForwardedFor[0] : xForwardedFor).split(',')
-    return ips[0].trim()
+    const raw = Array.isArray(xForwardedFor) ? (xForwardedFor[0] ?? '') : xForwardedFor
+    const ips = raw.split(',')
+    return ips[0]?.trim() || 'unknown'
   }
   return req.socket.remoteAddress || 'unknown'
 }

@@ -330,7 +330,7 @@ function skipMessageKeys(session: DoubleRatchetSession, until: number): void {
         const allKeys = Array.from(session.skippedMessageKeys.keys());
         let i = 0;
         while (session.skippedMessageKeys.size > MAX_SKIPPED_KEYS && i < allKeys.length) {
-            session.skippedMessageKeys.delete(allKeys[i]);
+            session.skippedMessageKeys.delete(allKeys[i]!);
             i++;
         }
     }

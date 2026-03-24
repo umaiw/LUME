@@ -286,7 +286,7 @@ describe('ratchetEncrypt and ratchetDecrypt', () => {
     const encrypted = ratchetEncrypt(aliceSession, Buffer.from('tamper me'));
     // Decode ciphertext, flip one byte, re-encode — keeps valid base64
     const raw = decodeBase64(encrypted.ciphertext);
-    raw[0] ^= 0xff;  // flip all bits in first byte
+    raw[0] = raw[0]! ^ 0xff;  // flip all bits in first byte
     const tampered = { ...encrypted, ciphertext: encodeBase64(raw) };
 
     const result = ratchetDecrypt(bobSession, tampered);

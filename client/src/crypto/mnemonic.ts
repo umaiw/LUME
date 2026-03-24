@@ -142,8 +142,8 @@ export function getRandomWordPositions(wordCount: number, checkCount: number = 3
     for (let i = 0; i < Math.min(checkCount, wordCount); i++) {
         const randomBytes = new Uint32Array(1);
         crypto.getRandomValues(randomBytes);
-        const randomIndex = randomBytes[0] % available.length;
-        positions.push(available[randomIndex]);
+        const randomIndex = randomBytes[0]! % available.length;
+        positions.push(available[randomIndex]!);
         available.splice(randomIndex, 1);
     }
 

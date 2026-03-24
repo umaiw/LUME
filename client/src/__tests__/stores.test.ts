@@ -139,7 +139,7 @@ describe('useContactsStore', () => {
 
     const contacts = useContactsStore.getState().contacts;
     expect(contacts.length).toBe(2);
-    expect(contacts[1].id).toBe('b');
+    expect(contacts[1]!.id).toBe('b');
   });
 
   it('removeContact removes by id', () => {
@@ -148,7 +148,7 @@ describe('useContactsStore', () => {
 
     const contacts = useContactsStore.getState().contacts;
     expect(contacts.length).toBe(1);
-    expect(contacts[0].id).toBe('b');
+    expect(contacts[0]!.id).toBe('b');
   });
 
   it('removeContact with non-existent id does nothing', () => {
@@ -161,7 +161,7 @@ describe('useContactsStore', () => {
     useContactsStore.getState().setContacts([makeContact('a')]);
     useContactsStore.getState().updateContact('a', { displayName: 'Alice', verified: true });
 
-    const contact = useContactsStore.getState().contacts[0];
+    const contact = useContactsStore.getState().contacts[0]!;
     expect(contact.displayName).toBe('Alice');
     expect(contact.verified).toBe(true);
     expect(contact.username).toBe('user_a'); // unchanged
@@ -185,7 +185,7 @@ describe('useChatsStore', () => {
   it('addChat appends a chat', () => {
     useChatsStore.getState().addChat(makeChat('c1', 'contact1'));
     expect(useChatsStore.getState().chats.length).toBe(1);
-    expect(useChatsStore.getState().chats[0].id).toBe('c1');
+    expect(useChatsStore.getState().chats[0]!.id).toBe('c1');
   });
 
   it('addMessage appends message to correct chat', () => {
@@ -194,9 +194,9 @@ describe('useChatsStore', () => {
 
     useChatsStore.getState().addMessage('c1', msg);
 
-    const chat = useChatsStore.getState().chats[0];
+    const chat = useChatsStore.getState().chats[0]!;
     expect(chat.messages.length).toBe(1);
-    expect(chat.messages[0].id).toBe('m1');
+    expect(chat.messages[0]!.id).toBe('m1');
     expect(chat.lastMessage).toEqual(msg);
   });
 
@@ -207,7 +207,7 @@ describe('useChatsStore', () => {
     useChatsStore.getState().addMessage('c1', msg);
     useChatsStore.getState().addMessage('c1', msg); // duplicate
 
-    const chat = useChatsStore.getState().chats[0];
+    const chat = useChatsStore.getState().chats[0]!;
     expect(chat.messages.length).toBe(1);
   });
 
@@ -226,10 +226,10 @@ describe('useChatsStore', () => {
       useChatsStore.getState().addMessage('c1', makeMessage(`new_${i}`, 'c1'));
     }
 
-    const chat = useChatsStore.getState().chats[0];
+    const chat = useChatsStore.getState().chats[0]!;
     expect(chat.messages.length).toBeLessThanOrEqual(200);
     // Latest messages should be kept
-    expect(chat.messages[chat.messages.length - 1].id).toBe('new_4');
+    expect(chat.messages[chat.messages.length - 1]!.id).toBe('new_4');
   });
 
   it('addMessage increments unreadCount when chat is NOT active', () => {
@@ -238,7 +238,7 @@ describe('useChatsStore', () => {
 
     useChatsStore.getState().addMessage('c1', makeMessage('m1', 'c1'));
 
-    expect(useChatsStore.getState().chats[0].unreadCount).toBe(1);
+    expect(useChatsStore.getState().chats[0]!.unreadCount).toBe(1);
   });
 
   it('addMessage does NOT increment unreadCount when chat IS active', () => {
@@ -247,7 +247,7 @@ describe('useChatsStore', () => {
 
     useChatsStore.getState().addMessage('c1', makeMessage('m1', 'c1'));
 
-    expect(useChatsStore.getState().chats[0].unreadCount).toBe(0);
+    expect(useChatsStore.getState().chats[0]!.unreadCount).toBe(0);
   });
 
   it('deleteMessage removes message and updates lastMessage', () => {
@@ -262,7 +262,7 @@ describe('useChatsStore', () => {
 
     useChatsStore.getState().deleteMessage('c1', 'm2');
 
-    const chat = useChatsStore.getState().chats[0];
+    const chat = useChatsStore.getState().chats[0]!;
     expect(chat.messages.length).toBe(1);
     expect(chat.lastMessage).toEqual(msg1);
   });
@@ -275,7 +275,7 @@ describe('useChatsStore', () => {
 
     const state = useChatsStore.getState();
     expect(state.chats.length).toBe(1);
-    expect(state.chats[0].id).toBe('c2');
+    expect(state.chats[0]!.id).toBe('c2');
     expect(state.activeChatId).toBeNull();
   });
 
@@ -286,27 +286,27 @@ describe('useChatsStore', () => {
     }]);
 
     useChatsStore.getState().markAsRead('c1');
-    expect(useChatsStore.getState().chats[0].unreadCount).toBe(0);
+    expect(useChatsStore.getState().chats[0]!.unreadCount).toBe(0);
   });
 
   it('setChatHidden toggles isHidden', () => {
     useChatsStore.getState().setChats([makeChat('c1', 'contact1')]);
 
     useChatsStore.getState().setChatHidden('c1', true);
-    expect(useChatsStore.getState().chats[0].isHidden).toBe(true);
+    expect(useChatsStore.getState().chats[0]!.isHidden).toBe(true);
 
     useChatsStore.getState().setChatHidden('c1', false);
-    expect(useChatsStore.getState().chats[0].isHidden).toBe(false);
+    expect(useChatsStore.getState().chats[0]!.isHidden).toBe(false);
   });
 
   it('setSelfDestructTimer sets timer value', () => {
     useChatsStore.getState().setChats([makeChat('c1', 'contact1')]);
 
     useChatsStore.getState().setSelfDestructTimer('c1', 60);
-    expect(useChatsStore.getState().chats[0].selfDestructTimer).toBe(60);
+    expect(useChatsStore.getState().chats[0]!.selfDestructTimer).toBe(60);
 
     useChatsStore.getState().setSelfDestructTimer('c1', undefined);
-    expect(useChatsStore.getState().chats[0].selfDestructTimer).toBeUndefined();
+    expect(useChatsStore.getState().chats[0]!.selfDestructTimer).toBeUndefined();
   });
 
   it('updateMessage updates specific message fields', () => {
@@ -319,8 +319,8 @@ describe('useChatsStore', () => {
 
     useChatsStore.getState().updateMessage('c1', 'm1', { status: 'delivered' });
 
-    const chat = useChatsStore.getState().chats[0];
-    expect(chat.messages[0].status).toBe('delivered');
+    const chat = useChatsStore.getState().chats[0]!;
+    expect(chat.messages[0]!.status).toBe('delivered');
     expect(chat.lastMessage!.status).toBe('delivered');
   });
 
@@ -338,7 +338,7 @@ describe('useChatsStore', () => {
 
     useChatsStore.getState().pruneExpiredMessages(now);
 
-    const chat = useChatsStore.getState().chats[0];
+    const chat = useChatsStore.getState().chats[0]!;
     expect(chat.messages.length).toBe(2);
     expect(chat.messages.map((m) => m.id)).toEqual(['m2', 'm3']);
     expect(chat.unreadCount).toBeLessThanOrEqual(2);

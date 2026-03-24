@@ -71,7 +71,7 @@ describe('validateMnemonic', () => {
   it('rejects a mnemonic with wrong checksum (word shuffled)', () => {
     const words = generateMnemonic().split(' ');
     // Swap two words to break checksum
-    [words[0], words[1]] = [words[1], words[0]];
+    [words[0], words[1]] = [words[1]!, words[0]!];
     // Most shuffles break the BIP39 checksum; this is non-deterministic
     // but overwhelmingly likely to fail. We do a best-effort check.
     const isValid = validateMnemonic(words.join(' '));
@@ -219,8 +219,8 @@ describe('maskMnemonic', () => {
     const words = mnemonic.split(' ');
     const masked = maskMnemonic(mnemonic);
 
-    expect(masked.startsWith(words[0])).toBe(true);
-    expect(masked.endsWith(words[words.length - 1])).toBe(true);
+    expect(masked.startsWith(words[0]!)).toBe(true);
+    expect(masked.endsWith(words[words.length - 1]!)).toBe(true);
     expect(masked).toContain('****');
     expect(masked).toContain('...');
   });
@@ -283,7 +283,7 @@ describe('getRandomWordPositions', () => {
   it('positions are sorted ascending', () => {
     const positions = getRandomWordPositions(12, 4);
     for (let i = 1; i < positions.length; i++) {
-      expect(positions[i]).toBeGreaterThanOrEqual(positions[i - 1]);
+      expect(positions[i]!).toBeGreaterThanOrEqual(positions[i - 1]!);
     }
   });
 

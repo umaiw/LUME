@@ -6,7 +6,8 @@ import path from 'path'
 
 import database from '../db/database'
 import { requireSignature } from '../middleware/auth'
-import { isValidUuidLike } from '../utils/validators'
+import { validateBody, validateParams } from '../middleware/validate'
+import { UploadFileBodySchema, FileIdParamSchema } from '../schemas/files'
 
 const router = Router()
 
@@ -49,107 +50,107 @@ const downloadRateLimit = rateLimit({
 })
 
 // POST /files/upload — upload an encrypted file blob
-router.post('/upload', requireSignature, uploadRateLimit, (req: Request, res: Response) => {
-  try {
-    const signer = req.user?.identityKey
-      ? database.getUserByIdentityKey(req.user.identityKey)
-      : undefined
-    if (!signer) {
-      res.status(403).json({ error: 'Unauthorized' })
-      return
+router.post(
+  '/upload',
+  requireSignature,
+  uploadRateLimit,
+  validateBody(UploadFileBodySchema),
+  (req: Request, res: Response) => {
+    try {
+      const signer = req.user?.identityKey
+        ? database.getUserByIdentityKey(req.user.identityKey)
+        : undefined
+      if (!signer) {
+        res.status(403).json({ error: 'Unauthorized' })
+        return
+      }
+
+      // Check file count limit
+      if (database.getUserFileCount(signer.id) >= MAX_FILES_PER_USER) {
+        res.status(429).json({ error: 'File storage limit reached' })
+        return
+      }
+
+      const { data, mimeHint } = req.body as { data: string; mimeHint?: string }
+
+      // data is base64-encoded encrypted blob
+      const buffer = Buffer.from(data, 'base64')
+      if (buffer.length === 0 || buffer.length > MAX_FILE_SIZE) {
+        res.status(400).json({ error: `File too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB)` })
+        return
+      }
+
+      const safeMime = mimeHint ?? 'application/octet-stream'
+
+      const fileId = uuidv4()
+      const expiresAt = Math.floor(Date.now() / 1000) + FILE_EXPIRY_DAYS * 24 * 60 * 60
+
+      // Write encrypted blob to disk
+      const filePath = path.join(UPLOAD_DIR, fileId)
+      fs.writeFileSync(filePath, buffer)
+
+      database.createFile(fileId, signer.id, buffer.length, safeMime, expiresAt)
+
+      res.status(201).json({
+        fileId,
+        size: buffer.length,
+        expiresAt: expiresAt * 1000,
+      })
+    } catch (error) {
+      console.error('File upload error:', error instanceof Error ? error.message : String(error))
+      res.status(500).json({ error: 'Failed to upload file' })
     }
-
-    // Check file count limit
-    if (database.getUserFileCount(signer.id) >= MAX_FILES_PER_USER) {
-      res.status(429).json({ error: 'File storage limit reached' })
-      return
-    }
-
-    const { data, mimeHint } = req.body as { data?: string; mimeHint?: string }
-
-    if (!data || typeof data !== 'string') {
-      res.status(400).json({ error: 'Missing file data' })
-      return
-    }
-
-    // data is base64-encoded encrypted blob
-    const buffer = Buffer.from(data, 'base64')
-    if (buffer.length === 0 || buffer.length > MAX_FILE_SIZE) {
-      res.status(400).json({ error: `File too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB)` })
-      return
-    }
-
-    const safeMime =
-      typeof mimeHint === 'string' && /^[a-z]+\/[a-z0-9.+-]+$/.test(mimeHint)
-        ? mimeHint
-        : 'application/octet-stream'
-
-    const fileId = uuidv4()
-    const expiresAt = Math.floor(Date.now() / 1000) + FILE_EXPIRY_DAYS * 24 * 60 * 60
-
-    // Write encrypted blob to disk
-    const filePath = path.join(UPLOAD_DIR, fileId)
-    fs.writeFileSync(filePath, buffer)
-
-    database.createFile(fileId, signer.id, buffer.length, safeMime, expiresAt)
-
-    res.status(201).json({
-      fileId,
-      size: buffer.length,
-      expiresAt: expiresAt * 1000,
-    })
-  } catch (error) {
-    console.error('File upload error:', error instanceof Error ? error.message : String(error))
-    res.status(500).json({ error: 'Failed to upload file' })
   }
-})
+)
 
 // GET /files/:fileId — download an encrypted file blob
-router.get('/:fileId', requireSignature, downloadRateLimit, (req: Request, res: Response) => {
-  try {
-    const fileId = req.params.fileId as string
-    if (!isValidUuidLike(fileId)) {
-      res.status(400).json({ error: 'Invalid fileId' })
-      return
-    }
+router.get(
+  '/:fileId',
+  requireSignature,
+  downloadRateLimit,
+  validateParams(FileIdParamSchema),
+  (req: Request, res: Response) => {
+    try {
+      const fileId = req.params.fileId!
 
-    const signer = req.user?.identityKey
-      ? database.getUserByIdentityKey(req.user.identityKey)
-      : undefined
-    if (!signer) {
-      res.status(403).json({ error: 'Unauthorized' })
-      return
-    }
+      const signer = req.user?.identityKey
+        ? database.getUserByIdentityKey(req.user.identityKey)
+        : undefined
+      if (!signer) {
+        res.status(403).json({ error: 'Unauthorized' })
+        return
+      }
 
-    const file = database.getFileById(fileId)
-    if (!file) {
-      res.status(404).json({ error: 'File not found' })
-      return
-    }
+      const file = database.getFileById(fileId)
+      if (!file) {
+        res.status(404).json({ error: 'File not found' })
+        return
+      }
 
-    // Check expiry
-    if (file.expires_at && file.expires_at < Math.floor(Date.now() / 1000)) {
-      res.status(410).json({ error: 'File expired' })
-      return
-    }
+      // Check expiry
+      if (file.expires_at && file.expires_at < Math.floor(Date.now() / 1000)) {
+        res.status(410).json({ error: 'File expired' })
+        return
+      }
 
-    const filePath = path.join(UPLOAD_DIR, fileId)
-    if (!fs.existsSync(filePath)) {
-      res.status(404).json({ error: 'File not found on disk' })
-      return
-    }
+      const filePath = path.join(UPLOAD_DIR, fileId)
+      if (!fs.existsSync(filePath)) {
+        res.status(404).json({ error: 'File not found on disk' })
+        return
+      }
 
-    const data = fs.readFileSync(filePath)
-    res.json({
-      fileId: file.id,
-      data: data.toString('base64'),
-      mimeHint: file.mime_hint,
-      size: file.size,
-    })
-  } catch (error) {
-    console.error('File download error:', error instanceof Error ? error.message : String(error))
-    res.status(500).json({ error: 'Failed to download file' })
+      const data = fs.readFileSync(filePath)
+      res.json({
+        fileId: file.id,
+        data: data.toString('base64'),
+        mimeHint: file.mime_hint,
+        size: file.size,
+      })
+    } catch (error) {
+      console.error('File download error:', error instanceof Error ? error.message : String(error))
+      res.status(500).json({ error: 'Failed to download file' })
+    }
   }
-})
+)
 
 export default router

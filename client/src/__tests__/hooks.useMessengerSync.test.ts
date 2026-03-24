@@ -213,7 +213,7 @@ describe('useMessengerSync internals', () => {
       const ids = Object.keys(useBlockedStore.getState().blockedIds);
       localStorage.setItem('lume:blocked', JSON.stringify(ids));
 
-      expect(JSON.parse(localStorageMap['lume:blocked'])).toEqual(
+      expect(JSON.parse(localStorageMap['lume:blocked']!)).toEqual(
         expect.arrayContaining(['u1', 'u2'])
       );
     });
@@ -301,9 +301,9 @@ describe('useMessengerSync internals', () => {
 
       useChatsStore.getState().pruneExpiredMessages(now);
 
-      const chat = useChatsStore.getState().chats[0];
+      const chat = useChatsStore.getState().chats[0]!;
       expect(chat.messages).toHaveLength(1);
-      expect(chat.messages[0].id).toBe('m2');
+      expect(chat.messages[0]!.id).toBe('m2');
     });
 
     it('keeps messages with future selfDestructAt', () => {
@@ -320,7 +320,7 @@ describe('useMessengerSync internals', () => {
 
       useChatsStore.getState().pruneExpiredMessages(now);
 
-      expect(useChatsStore.getState().chats[0].messages).toHaveLength(1);
+      expect(useChatsStore.getState().chats[0]!.messages).toHaveLength(1);
     });
   });
 
@@ -391,14 +391,14 @@ describe('useMessengerSync internals', () => {
       }]);
 
       // Adding message 200 — still within limit
-      useChatsStore.getState().addMessage('c1', messages[199]);
-      expect(useChatsStore.getState().chats[0].messages).toHaveLength(200);
+      useChatsStore.getState().addMessage('c1', messages[199]!);
+      expect(useChatsStore.getState().chats[0]!.messages).toHaveLength(200);
 
       // Adding message 201 — should trim to 200
-      useChatsStore.getState().addMessage('c1', messages[200]);
-      expect(useChatsStore.getState().chats[0].messages).toHaveLength(200);
+      useChatsStore.getState().addMessage('c1', messages[200]!);
+      expect(useChatsStore.getState().chats[0]!.messages).toHaveLength(200);
       // Oldest message should be trimmed
-      expect(useChatsStore.getState().chats[0].messages[0].id).toBe('m1');
+      expect(useChatsStore.getState().chats[0]!.messages[0]!.id).toBe('m1');
     });
   });
 
@@ -418,8 +418,8 @@ describe('useMessengerSync internals', () => {
         id: 'm1', chatId: 'c1', senderId: 'u1', content: 'duplicate', type: 'text', timestamp: Date.now(), status: 'delivered',
       });
 
-      expect(useChatsStore.getState().chats[0].messages).toHaveLength(1);
-      expect(useChatsStore.getState().chats[0].messages[0].content).toBe('hello');
+      expect(useChatsStore.getState().chats[0]!.messages).toHaveLength(1);
+      expect(useChatsStore.getState().chats[0]!.messages[0]!.content).toBe('hello');
     });
   });
 });

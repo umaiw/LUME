@@ -5,7 +5,7 @@ import { createHash } from 'crypto'
 import database from '../db/database'
 
 function getCanonicalApiPath(req: Request): string {
-  const withoutQuery = req.originalUrl.split('?')[0]
+  const withoutQuery = req.originalUrl.split('?')[0] ?? req.originalUrl
   if (withoutQuery.startsWith('/api/')) {
     return withoutQuery.slice('/api'.length)
   }

@@ -4,7 +4,7 @@ import { decodeBase64 } from 'tweetnacl-util';
 function compareBytes(a: Uint8Array, b: Uint8Array): number {
   const len = Math.min(a.length, b.length);
   for (let i = 0; i < len; i++) {
-    if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1;
+    if (a[i] !== b[i]) return a[i]! < b[i]! ? -1 : 1;
   }
   return a.length === b.length ? 0 : a.length < b.length ? -1 : 1;
 }
@@ -46,8 +46,8 @@ export function computeSafetyNumber(params: {
   const bytes = digest.slice(0, 20);
   const groups: string[] = [];
   for (let i = 0; i < 10; i++) {
-    const hi = bytes[i * 2];
-    const lo = bytes[i * 2 + 1];
+    const hi = bytes[i * 2]!;
+    const lo = bytes[i * 2 + 1]!;
     const value = ((hi << 8) | lo) % 100000;
     groups.push(value.toString().padStart(5, '0'));
   }

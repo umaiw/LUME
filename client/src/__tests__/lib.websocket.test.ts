@@ -86,7 +86,7 @@ class MockWebSocket {
     MockWebSocket._instances = [];
   }
   static get lastInstance() {
-    return MockWebSocket._instances[MockWebSocket._instances.length - 1];
+    return MockWebSocket._instances[MockWebSocket._instances.length - 1]!;
   }
 }
 
@@ -149,7 +149,7 @@ describe('WebSocketClient', () => {
   describe('connect', () => {
     it('creates WebSocket with correct URL and protocols', async () => {
       const connectPromise = wsClient.connect('test-token');
-      const ws = MockWebSocket.lastInstance;
+      const ws = MockWebSocket.lastInstance!;
       expect(ws).toBeDefined();
       expect(ws.url).toBe('ws://localhost:3001/ws');
       expect(ws.protocols).toContain('lume');
@@ -170,7 +170,7 @@ describe('WebSocketClient', () => {
 
     it('resolves immediately if already connected with same token', async () => {
       const p1 = wsClient.connect('tok');
-      const ws = MockWebSocket.lastInstance;
+      const ws = MockWebSocket.lastInstance!;
       ws.simulateOpen();
       await p1;
 
@@ -215,9 +215,9 @@ describe('WebSocketClient', () => {
       await p;
 
       wsClient.send({ type: 'test', data: 123 });
-      const ws = MockWebSocket.lastInstance;
+      const ws = MockWebSocket.lastInstance!;
       expect(ws.sentMessages).toHaveLength(1);
-      expect(JSON.parse(ws.sentMessages[0])).toEqual({ type: 'test', data: 123 });
+      expect(JSON.parse(ws.sentMessages[0]!)).toEqual({ type: 'test', data: 123 });
     });
 
     it('does nothing if not connected', () => {
@@ -233,7 +233,7 @@ describe('WebSocketClient', () => {
       await p;
 
       wsClient.sendTyping('recipient-1', true);
-      const sent = JSON.parse(MockWebSocket.lastInstance.sentMessages[0]);
+      const sent = JSON.parse(MockWebSocket.lastInstance.sentMessages[0]!);
       expect(sent).toEqual({ type: 'typing', recipientId: 'recipient-1', isTyping: true });
     });
   });
@@ -245,7 +245,7 @@ describe('WebSocketClient', () => {
       await p;
 
       wsClient.sendReadReceipt('recipient-1', ['m1', 'm2']);
-      const sent = JSON.parse(MockWebSocket.lastInstance.sentMessages[0]);
+      const sent = JSON.parse(MockWebSocket.lastInstance.sentMessages[0]!);
       expect(sent).toEqual({ type: 'read', recipientId: 'recipient-1', messageIds: ['m1', 'm2'] });
     });
 
@@ -400,12 +400,12 @@ describe('WebSocketClient', () => {
       MockWebSocket.lastInstance.simulateOpen();
       await p;
 
-      const ws = MockWebSocket.lastInstance;
+      const ws = MockWebSocket.lastInstance!;
       expect(ws.sentMessages).toHaveLength(0);
 
       vi.advanceTimersByTime(30000);
       expect(ws.sentMessages).toHaveLength(1);
-      expect(JSON.parse(ws.sentMessages[0])).toEqual({ type: 'ping' });
+      expect(JSON.parse(ws.sentMessages[0]!)).toEqual({ type: 'ping' });
 
       vi.advanceTimersByTime(30000);
       expect(ws.sentMessages).toHaveLength(2);

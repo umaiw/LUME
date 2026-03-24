@@ -57,7 +57,7 @@ export default function ChatHeader({
           >
             <div className="w-11 h-11 rounded-full border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-sm)] p-[2px] flex-shrink-0">
               <div className="lume-avatar w-full h-full rounded-full border border-[var(--border)] flex items-center justify-center text-[var(--text-primary)] text-[16px] font-semibold">
-                {contact.username[0].toUpperCase()}
+                {contact.username[0]!.toUpperCase()}
               </div>
             </div>
             <div className="min-w-0">

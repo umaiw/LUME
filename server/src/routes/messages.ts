@@ -7,7 +7,14 @@ import rateLimit from 'express-rate-limit'
 import database from '../db/database'
 import { broadcastToUser } from '../websocket/handler'
 import { requireSignature } from '../middleware/auth'
-import { isValidUsername, isValidUuidLike } from '../utils/validators'
+import { validateBody, validateParams } from '../middleware/validate'
+import {
+  SendMessageBodySchema,
+  PendingParamSchema,
+  MessageIdParamSchema,
+  AcknowledgeBodySchema,
+} from '../schemas/messages'
+import type { SendMessageBody } from '../schemas/messages'
 import { sendPushNotification } from '../services/pushService'
 
 const router = Router()
@@ -28,14 +35,6 @@ const sendRateLimit = rateLimit({
     return `ip:${req.ip || '127.0.0.1'}`
   },
 })
-
-// === Types ==================================================================
-
-export interface SendMessageRequest {
-  senderId: string
-  recipientUsername: string
-  encryptedPayload: string // JSON string with envelope, ciphertext, nonce
-}
 
 const MAX_ENCRYPTED_PAYLOAD_BYTES = 64 * 1024
 
@@ -164,197 +163,192 @@ export function isValidEncryptedPayload(value: string): boolean {
 // === Routes =================================================================
 
 // POST /messages/send
-router.post('/send', requireSignature, sendRateLimit, (req: Request, res: Response) => {
-  try {
-    const { senderId, recipientUsername, encryptedPayload } = req.body as SendMessageRequest
-    const normalizedRecipient =
-      typeof recipientUsername === 'string' ? recipientUsername.trim() : recipientUsername
+router.post(
+  '/send',
+  requireSignature,
+  sendRateLimit,
+  validateBody(SendMessageBodySchema),
+  (req: Request, res: Response) => {
+    try {
+      const { senderId, recipientUsername, encryptedPayload } = req.body as SendMessageBody
 
-    if (!isValidUuidLike(senderId)) {
-      res.status(400).json({ error: 'Invalid senderId' })
-      return
-    }
-    if (!isValidUsername(normalizedRecipient)) {
-      res.status(400).json({ error: 'Invalid recipient username' })
-      return
-    }
-    if (!isValidEncryptedPayload(encryptedPayload)) {
-      res.status(400).json({ error: 'Invalid encrypted payload' })
-      return
-    }
+      if (!isValidEncryptedPayload(encryptedPayload)) {
+        res.status(400).json({ error: 'Invalid encrypted payload' })
+        return
+      }
 
-    const sender = database.getUserById(senderId)
-    if (!sender) {
-      res.status(401).json({ error: 'Unauthorized' })
-      return
-    }
+      const sender = database.getUserById(senderId)
+      if (!sender) {
+        res.status(401).json({ error: 'Unauthorized' })
+        return
+      }
 
-    if (sender.identity_key !== req.user?.identityKey) {
-      res.status(403).json({ error: 'Identity mismatch' })
-      return
-    }
+      if (sender.identity_key !== req.user?.identityKey) {
+        res.status(403).json({ error: 'Identity mismatch' })
+        return
+      }
 
-    const recipient = database.getUserByUsername(normalizedRecipient)
-    if (!recipient) {
-      res.status(404).json({ error: 'Recipient not found' })
-      return
-    }
+      const recipient = database.getUserByUsername(recipientUsername)
+      if (!recipient) {
+        res.status(404).json({ error: 'Recipient not found' })
+        return
+      }
 
-    // If the recipient has blocked the sender, silently accept
-    // (don't leak the block status to the sender)
-    if (database.isBlocked(recipient.id, senderId)) {
-      res.status(201).json({
-        messageId: uuidv4(),
-        delivered: false,
+      // If the recipient has blocked the sender, silently accept
+      // (don't leak the block status to the sender)
+      if (database.isBlocked(recipient.id, senderId)) {
+        res.status(201).json({
+          messageId: uuidv4(),
+          delivered: false,
+        })
+        return
+      }
+
+      const MAX_PENDING_PER_USER = 10000
+      if (database.getPendingMessageCount(recipient.id) >= MAX_PENDING_PER_USER) {
+        res.status(429).json({ error: 'Recipient inbox is full' })
+        return
+      }
+
+      const messageId = uuidv4()
+      database.queueMessage(messageId, senderId, recipient.id, encryptedPayload)
+
+      const delivered = broadcastToUser(recipient.id, {
+        type: 'new_message',
+        messageId,
+        senderId,
+        senderUsername: sender.username,
+        encryptedPayload,
+        timestamp: Date.now(),
       })
-      return
+
+      // Send push notification if recipient is offline
+      if (!delivered) {
+        void sendPushNotification(recipient.id, sender.username)
+      }
+
+      res.status(201).json({
+        messageId,
+        delivered,
+      })
+    } catch (error) {
+      console.error('Send message error:', error instanceof Error ? error.message : String(error))
+      res.status(500).json({ error: 'Failed to send message' })
     }
-
-    const MAX_PENDING_PER_USER = 10000
-    if (database.getPendingMessageCount(recipient.id) >= MAX_PENDING_PER_USER) {
-      res.status(429).json({ error: 'Recipient inbox is full' })
-      return
-    }
-
-    const messageId = uuidv4()
-    database.queueMessage(messageId, senderId, recipient.id, encryptedPayload)
-
-    const delivered = broadcastToUser(recipient.id, {
-      type: 'new_message',
-      messageId,
-      senderId,
-      senderUsername: sender.username,
-      encryptedPayload,
-      timestamp: Date.now(),
-    })
-
-    // Send push notification if recipient is offline
-    if (!delivered) {
-      void sendPushNotification(recipient.id, sender.username)
-    }
-
-    res.status(201).json({
-      messageId,
-      delivered,
-    })
-  } catch (error) {
-    console.error('Send message error:', error instanceof Error ? error.message : String(error))
-    res.status(500).json({ error: 'Failed to send message' })
   }
-})
+)
 
 // GET /messages/pending/:userId
-router.get('/pending/:userId', requireSignature, (req: Request, res: Response) => {
-  try {
-    const userId = req.params.userId as string
-    if (!isValidUuidLike(userId)) {
-      res.status(400).json({ error: 'Invalid userId' })
-      return
+router.get(
+  '/pending/:userId',
+  requireSignature,
+  validateParams(PendingParamSchema),
+  (req: Request, res: Response) => {
+    try {
+      const userId = req.params.userId!
+
+      const user = database.getUserById(userId)
+      if (!user || user.identity_key !== req.user?.identityKey) {
+        res.status(403).json({ error: 'Unauthorized access to messages' })
+        return
+      }
+
+      const messages = database.getPendingMessages(userId)
+      const senderIds = [...new Set(messages.map(msg => msg.sender_id))]
+      const senderMap = new Map(
+        database.getUsersByIds(senderIds).map(sender => [sender.id, sender.username])
+      )
+
+      const messagesWithSenders = messages.map(msg => ({
+        id: msg.id,
+        senderId: msg.sender_id,
+        senderUsername: senderMap.get(msg.sender_id) || 'unknown',
+        encryptedPayload: msg.encrypted_payload,
+        timestamp: msg.created_at * 1000,
+      }))
+
+      res.json({ messages: messagesWithSenders })
+    } catch (error) {
+      console.error(
+        'Get pending messages error:',
+        error instanceof Error ? error.message : String(error)
+      )
+      res.status(500).json({ error: 'Failed to retrieve pending messages' })
     }
-
-    const user = database.getUserById(userId)
-    if (!user || user.identity_key !== req.user?.identityKey) {
-      res.status(403).json({ error: 'Unauthorized access to messages' })
-      return
-    }
-
-    const messages = database.getPendingMessages(userId)
-    const senderIds = [...new Set(messages.map(msg => msg.sender_id))]
-    const senderMap = new Map(
-      database.getUsersByIds(senderIds).map(sender => [sender.id, sender.username])
-    )
-
-    const messagesWithSenders = messages.map(msg => ({
-      id: msg.id,
-      senderId: msg.sender_id,
-      senderUsername: senderMap.get(msg.sender_id) || 'unknown',
-      encryptedPayload: msg.encrypted_payload,
-      timestamp: msg.created_at * 1000,
-    }))
-
-    res.json({ messages: messagesWithSenders })
-  } catch (error) {
-    console.error(
-      'Get pending messages error:',
-      error instanceof Error ? error.message : String(error)
-    )
-    res.status(500).json({ error: 'Failed to retrieve pending messages' })
   }
-})
+)
 
 // DELETE /messages/:messageId
-router.delete('/:messageId', requireSignature, (req: Request, res: Response) => {
-  try {
-    const messageId = req.params.messageId as string
-    if (!isValidUuidLike(messageId)) {
-      res.status(400).json({ error: 'Invalid messageId' })
-      return
+router.delete(
+  '/:messageId',
+  requireSignature,
+  validateParams(MessageIdParamSchema),
+  (req: Request, res: Response) => {
+    try {
+      const messageId = req.params.messageId!
+
+      const signer = req.user?.identityKey
+        ? database.getUserByIdentityKey(req.user.identityKey)
+        : undefined
+
+      if (!signer) {
+        res.status(403).json({ error: 'Unauthorized' })
+        return
+      }
+
+      const pending = database.getMessageById(messageId)
+      if (!pending) {
+        res.status(404).json({ error: 'Message not found' })
+        return
+      }
+
+      if (pending.recipient_id !== signer.id) {
+        res.status(403).json({ error: 'Unauthorized access to message' })
+        return
+      }
+
+      database.deleteMessage(messageId)
+      res.json({ message: 'Message acknowledged' })
+    } catch (error) {
+      console.error(
+        'Acknowledge message error:',
+        error instanceof Error ? error.message : String(error)
+      )
+      res.status(500).json({ error: 'Failed to acknowledge message' })
     }
-
-    const signer = req.user?.identityKey
-      ? database.getUserByIdentityKey(req.user.identityKey)
-      : undefined
-
-    if (!signer) {
-      res.status(403).json({ error: 'Unauthorized' })
-      return
-    }
-
-    const pending = database.getMessageById(messageId)
-    if (!pending) {
-      res.status(404).json({ error: 'Message not found' })
-      return
-    }
-
-    if (pending.recipient_id !== signer.id) {
-      res.status(403).json({ error: 'Unauthorized access to message' })
-      return
-    }
-
-    database.deleteMessage(messageId)
-    res.json({ message: 'Message acknowledged' })
-  } catch (error) {
-    console.error(
-      'Acknowledge message error:',
-      error instanceof Error ? error.message : String(error)
-    )
-    res.status(500).json({ error: 'Failed to acknowledge message' })
   }
-})
+)
 
 // POST /messages/acknowledge
-router.post('/acknowledge', requireSignature, (req: Request, res: Response) => {
-  try {
-    const { messageIds } = req.body as { messageIds: string[] }
-    if (
-      !Array.isArray(messageIds) ||
-      messageIds.length > 500 ||
-      messageIds.some(id => !isValidUuidLike(id))
-    ) {
-      res.status(400).json({ error: 'Invalid messageIds' })
-      return
+router.post(
+  '/acknowledge',
+  requireSignature,
+  validateBody(AcknowledgeBodySchema),
+  (req: Request, res: Response) => {
+    try {
+      const { messageIds } = req.body as { messageIds: string[] }
+
+      const signer = req.user?.identityKey
+        ? database.getUserByIdentityKey(req.user.identityKey)
+        : undefined
+
+      if (!signer) {
+        res.status(403).json({ error: 'Unauthorized' })
+        return
+      }
+
+      let acknowledged = 0
+      acknowledged = database.batchDeleteMessages(messageIds, signer.id)
+
+      res.json({ acknowledged })
+    } catch (error) {
+      console.error(
+        'Batch acknowledge error:',
+        error instanceof Error ? error.message : String(error)
+      )
+      res.status(500).json({ error: 'Failed to acknowledge messages' })
     }
-
-    const signer = req.user?.identityKey
-      ? database.getUserByIdentityKey(req.user.identityKey)
-      : undefined
-
-    if (!signer) {
-      res.status(403).json({ error: 'Unauthorized' })
-      return
-    }
-
-    let acknowledged = 0
-    acknowledged = database.batchDeleteMessages(messageIds, signer.id)
-
-    res.json({ acknowledged })
-  } catch (error) {
-    console.error(
-      'Batch acknowledge error:',
-      error instanceof Error ? error.message : String(error)
-    )
-    res.status(500).json({ error: 'Failed to acknowledge messages' })
   }
-})
+)
 
 export default router

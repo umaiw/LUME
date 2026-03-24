@@ -378,7 +378,7 @@ describe('deleteContact', () => {
 
     const loadedContacts = await loadContacts(masterKey);
     expect(loadedContacts.length).toBe(1);
-    expect(loadedContacts[0].id).toBe('b');
+    expect(loadedContacts[0]!.id).toBe('b');
 
     const loadedSessions = await loadRatchetSessions(masterKey);
     expect(loadedSessions['a']).toBeUndefined();
@@ -405,7 +405,7 @@ describe('hashHiddenChatPin / verifyHiddenChatPin', () => {
     const hash = await hashHiddenChatPin('test');
     const parts = hash.split(':');
     expect(parts.length).toBe(3);
-    expect(parseInt(parts[1], 10)).toBe(600_000);
+    expect(parseInt(parts[1]!, 10)).toBe(600_000);
   });
 
   it('isLegacyHiddenPinHash detects 2-part legacy format', () => {

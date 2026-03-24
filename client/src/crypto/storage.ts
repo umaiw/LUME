@@ -503,7 +503,7 @@ export async function consumeOneTimePreKey(
   );
   if (index < 0) return null;
 
-  const [keyPair] = material.oneTimePreKeys.splice(index, 1);
+  const [keyPair] = material.oneTimePreKeys.splice(index, 1) as [KeyPair];
   material.updatedAt = Date.now();
   await savePreKeyMaterial(material, masterKey);
   return keyPair;
@@ -601,8 +601,8 @@ export async function checkPinLockout(): Promise<void> {
 export async function recordPinFailure(): Promise<void> {
   failedPinAttempts++;
   for (let i = LOCKOUT_THRESHOLDS.length - 1; i >= 0; i--) {
-    if (failedPinAttempts >= LOCKOUT_THRESHOLDS[i].attempts) {
-      lockedUntil = Date.now() + LOCKOUT_THRESHOLDS[i].lockSeconds * 1000;
+    if (failedPinAttempts >= LOCKOUT_THRESHOLDS[i]!.attempts) {
+      lockedUntil = Date.now() + LOCKOUT_THRESHOLDS[i]!.lockSeconds * 1000;
       break;
     }
   }
@@ -627,7 +627,7 @@ function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) {
-    diff |= a[i] ^ b[i];
+    diff |= a[i]! ^ b[i]!;
   }
   return diff === 0;
 }
@@ -659,14 +659,14 @@ export async function verifyHiddenChatPin(
 
   if (parts.length === 3) {
     // New format: "salt:iterations:hash"
-    salt = decodeBase64(parts[0]);
-    iterations = parseInt(parts[1], 10);
-    expectedBytes = decodeBase64(parts[2]);
+    salt = decodeBase64(parts[0]!);
+    iterations = parseInt(parts[1]!, 10);
+    expectedBytes = decodeBase64(parts[2]!);
   } else if (parts.length === 2) {
     // Legacy format: "salt:hash" (100k iterations)
-    salt = decodeBase64(parts[0]);
+    salt = decodeBase64(parts[0]!);
     iterations = LEGACY_HIDDEN_PIN_ITERATIONS;
-    expectedBytes = decodeBase64(parts[1]);
+    expectedBytes = decodeBase64(parts[1]!);
   } else {
     return false;
   }

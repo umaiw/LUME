@@ -65,7 +65,7 @@ function ChatRow({
             ${selected ? 'border-[var(--accent)]/35 bg-[var(--surface)]' : 'border-[var(--border)] bg-[var(--surface)]'}
           `}
         >
-          {contact.username[0].toUpperCase()}
+          {contact.username[0]!.toUpperCase()}
         </div>
 
         <div className="flex-1 min-w-0">

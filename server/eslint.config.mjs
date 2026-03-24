@@ -2,6 +2,8 @@ import js from '@eslint/js';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
 import prettierConfig from 'eslint-config-prettier';
+import securityPlugin from 'eslint-plugin-security';
+import noSecretsPlugin from 'eslint-plugin-no-secrets';
 import globals from 'globals';
 
 export default [
@@ -25,6 +27,8 @@ export default [
     },
     plugins: {
       '@typescript-eslint': tsPlugin,
+      'security': securityPlugin,
+      'no-secrets': noSecretsPlugin,
     },
     rules: {
       ...tsPlugin.configs.recommended.rules,
@@ -39,6 +43,16 @@ export default [
       ],
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-namespace': 'off',
+
+      // Security rules
+      'security/detect-object-injection': 'warn',
+      'security/detect-non-literal-regexp': 'warn',
+      'security/detect-unsafe-regex': 'error',
+      'security/detect-buffer-noassert': 'error',
+      'security/detect-eval-with-expression': 'error',
+      'security/detect-no-csrf-before-method-override': 'error',
+      'security/detect-possible-timing-attacks': 'warn',
+      'no-secrets/no-secrets': ['error', { tolerance: 4.5 }],
     },
   },
   prettierConfig,

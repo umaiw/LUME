@@ -17,7 +17,9 @@ function toHost(value: string): string | null {
   const trimmed = normalizeRaw(value)
   if (!trimmed) return null
 
-  const withScheme = /^(https?:)?\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+  const hasScheme =
+    trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('//')
+  const withScheme = hasScheme ? trimmed : `https://${trimmed}`
   try {
     const url = new URL(withScheme)
     return url.host.toLowerCase()

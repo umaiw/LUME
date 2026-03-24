@@ -27,7 +27,8 @@
     "tweetnacl-util": "^0.15.1",
     "uuid": "^13.0.0",
     "web-push": "^3.6.7",
-    "ws": "^8.16.0"
+    "ws": "^8.16.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
@@ -44,7 +45,8 @@
     "autocannon": "^8.0.0",
     "eslint": "^9",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-security": "^2.1.0",
+    "eslint-plugin-no-secrets": "^2.3.3",
+    "eslint-plugin-security": "^2.1.1",
     "globals": "^17.3.0",
     "prettier": "^3.1.1",
     "supertest": "^7.0.0",

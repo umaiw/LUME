@@ -61,9 +61,9 @@ test.describe('Registration flow', () => {
       const labelText = await wordLabels.nth(i).textContent();
       const match = labelText?.match(/Word\s*#(\d+)/i);
       if (match) {
-        const wordIndex = parseInt(match[1], 10) - 1;
+        const wordIndex = parseInt(match[1]!, 10) - 1;
         const input = page.locator(`#verify-word-${wordIndex}`);
-        await input.fill(mnemonicWords[wordIndex]);
+        await input.fill(mnemonicWords[wordIndex]!);
       }
     }
 

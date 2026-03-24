@@ -118,7 +118,7 @@ export default function PrivacySection({
         }
         let diff = 0;
         for (let i = 0; i < derivedKey.length; i++) {
-          diff |= derivedKey[i] ^ masterKey[i];
+          diff |= derivedKey[i]! ^ masterKey[i]!;
         }
         if (diff !== 0) {
           setHiddenPinError("Account PIN is incorrect");

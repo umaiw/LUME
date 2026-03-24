@@ -33,8 +33,8 @@ export default function MobileSwipeShell({ profilePanel, chatListPanel }: Mobile
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
+    touchStartX.current = e.touches[0]!.clientX;
+    touchStartY.current = e.touches[0]!.clientY;
     isHorizontalSwipe.current = null;
     setIsDragging(false);
     setDragOffset(0);
@@ -42,8 +42,8 @@ export default function MobileSwipeShell({ profilePanel, chatListPanel }: Mobile
 
   const handleTouchMove = useCallback(
     (e: TouchEvent) => {
-      const deltaX = e.touches[0].clientX - touchStartX.current;
-      const deltaY = e.touches[0].clientY - touchStartY.current;
+      const deltaX = e.touches[0]!.clientX - touchStartX.current;
+      const deltaY = e.touches[0]!.clientY - touchStartY.current;
 
       // Classify gesture on first significant movement.
       if (isHorizontalSwipe.current === null) {
@@ -85,7 +85,7 @@ export default function MobileSwipeShell({ profilePanel, chatListPanel }: Mobile
         return;
       }
 
-      const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+      const deltaX = e.changedTouches[0]!.clientX - touchStartX.current;
 
       if (deltaX < -SWIPE_THRESHOLD && activePanel === 0) {
         setActivePanel(1);

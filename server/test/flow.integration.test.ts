@@ -166,7 +166,7 @@ describe('integration: auth + messages flow', () => {
     const blockHeaders = signHeaders('POST', '/auth/block', blockBody, alice.idKey);
     res = await request(app).post('/api/auth/block').set(blockHeaders).send(blockBody);
     expect(res.status).toBe(400);
-    expect(res.body.error).toBe('Invalid blockedId');
+    expect(res.body.error).toContain('Invalid UUID format');
   });
 
   it('rejects self-block attempts', async () => {
@@ -425,7 +425,7 @@ describe('integration: account deletion lifecycle', () => {
     const res = await request(app).delete(`/api/auth/user/${malformedId}`).set(headers);
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toBe('Invalid userId');
+    expect(res.body.error).toContain('Invalid UUID format');
   });
 
   it('delete without auth headers returns 401', async () => {
