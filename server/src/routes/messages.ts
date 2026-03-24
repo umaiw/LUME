@@ -8,6 +8,7 @@ import database from '../db/database'
 import { broadcastToUser } from '../websocket/handler'
 import { requireSignature } from '../middleware/auth'
 import { isValidUsername, isValidUuidLike } from '../utils/validators'
+import { sendPushNotification } from '../services/pushService'
 
 const router = Router()
 
@@ -226,6 +227,11 @@ router.post('/send', requireSignature, sendRateLimit, (req: Request, res: Respon
       encryptedPayload,
       timestamp: Date.now(),
     })
+
+    // Send push notification if recipient is offline
+    if (!delivered) {
+      void sendPushNotification(recipient.id, sender.username)
+    }
 
     res.status(201).json({
       messageId,

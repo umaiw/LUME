@@ -265,6 +265,107 @@ export const messagesApi = {
     },
 };
 
+// ==================== Files API ====================
+
+export const filesApi = {
+    upload: (data: string, mimeHint: string, identityKeys: IdentityKeys) => {
+        const body = { data, mimeHint };
+        const headers = signRequest('POST', '/files/upload', body, identityKeys);
+        return request<{ fileId: string; size: number; expiresAt: number }>('/files/upload', {
+            method: 'POST',
+            body: JSON.stringify(body),
+            headers,
+        });
+    },
+
+    download: (fileId: string, identityKeys: IdentityKeys) => {
+        const headers = signRequest('GET', `/files/${fileId}`, {}, identityKeys);
+        return request<{ fileId: string; data: string; mimeHint: string; size: number }>(`/files/${fileId}`, {
+            headers,
+        });
+    },
+};
+
+// ==================== Groups API ====================
+
+export interface GroupData {
+    id: string;
+    name: string;
+    creator_id: string;
+    created_at: number;
+    members: Array<{ user_id: string; username: string; role: string }>;
+}
+
+export const groupsApi = {
+    create: (name: string, memberIds: string[], identityKeys: IdentityKeys) => {
+        const body = { name, memberIds };
+        const headers = signRequest('POST', '/groups/create', body, identityKeys);
+        return request<GroupData>('/groups/create', {
+            method: 'POST',
+            body: JSON.stringify(body),
+            headers,
+        });
+    },
+
+    list: (identityKeys: IdentityKeys) => {
+        const headers = signRequest('GET', '/groups', {}, identityKeys);
+        return request<{ groups: GroupData[] }>('/groups', {
+            headers,
+        });
+    },
+
+    get: (groupId: string, identityKeys: IdentityKeys) => {
+        const headers = signRequest('GET', `/groups/${groupId}`, {}, identityKeys);
+        return request<GroupData>(`/groups/${groupId}`, {
+            headers,
+        });
+    },
+
+    addMember: (groupId: string, userId: string, identityKeys: IdentityKeys) => {
+        const body = { userId };
+        const headers = signRequest('POST', `/groups/${groupId}/members`, body, identityKeys);
+        return request<{ ok: boolean; members: GroupData['members'] }>(`/groups/${groupId}/members`, {
+            method: 'POST',
+            body: JSON.stringify(body),
+            headers,
+        });
+    },
+
+    removeMember: (groupId: string, userId: string, identityKeys: IdentityKeys) => {
+        const headers = signRequest('DELETE', `/groups/${groupId}/members/${userId}`, {}, identityKeys);
+        return request<{ ok: boolean }>(`/groups/${groupId}/members/${userId}`, {
+            method: 'DELETE',
+            headers,
+        });
+    },
+};
+
+// ==================== Profile API ====================
+
+export interface ProfileData {
+    id: string;
+    username: string;
+    displayName: string | null;
+    avatarFileId: string | null;
+}
+
+export const profileApi = {
+    get: (userId: string, identityKeys: IdentityKeys) => {
+        const headers = signRequest('GET', `/profile/${userId}`, {}, identityKeys);
+        return request<ProfileData>(`/profile/${userId}`, { headers });
+    },
+
+    update: (userId: string, data: { displayName?: string | null; avatarFileId?: string | null }, identityKeys: IdentityKeys) => {
+        const body = data as Record<string, unknown>;
+        const headers = signRequest('PUT', `/profile/${userId}`, body, identityKeys);
+        return request<ProfileData>(`/profile/${userId}`, {
+            method: 'PUT',
+            body: JSON.stringify(body),
+            headers,
+        });
+    },
+};
+
 // ==================== Health API ====================
 
 export const healthApi = {

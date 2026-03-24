@@ -24,6 +24,7 @@ function ChatRow({
   onClick,
   showHiddenControls,
   onToggleHidden,
+  searchHighlight,
 }: {
   chat: Chat;
   contact: Contact;
@@ -31,10 +32,18 @@ function ChatRow({
   onClick: () => void;
   showHiddenControls: boolean;
   onToggleHidden: (chatId: string) => void;
+  searchHighlight?: string;
 }) {
   const timeLabel = formatTime(chat.lastMessage?.timestamp);
   const isBlocked = useBlockedStore((s) => !!s.blockedIds[contact.id]);
-  const preview = isBlocked ? 'Blocked' : (chat.lastMessage?.content || 'Start messaging');
+  const matchedMessage = searchHighlight
+    ? chat.messages.find((m) => m.content.toLowerCase().includes(searchHighlight))
+    : null;
+  const preview = isBlocked
+    ? 'Blocked'
+    : matchedMessage
+      ? matchedMessage.content
+      : (chat.lastMessage?.content || 'Start messaging');
 
   return (
     <button
@@ -262,12 +271,17 @@ export default function ChatListPanel({
       return showHiddenChats ? chat.isHidden : !chat.isHidden;
     });
 
+  const query = searchQuery.trim().toLowerCase();
+
   const filtered = modeScopedChats
     .filter((chat) => {
       const contact = contacts.find((c) => c.id === chat.contactId);
       if (!contact) return false;
-      if (!searchQuery.trim()) return true;
-      return contact.username.toLowerCase().includes(searchQuery.toLowerCase());
+      if (!query) return true;
+      // Match contact username
+      if (contact.username.toLowerCase().includes(query)) return true;
+      // Match message content
+      return chat.messages.some((m) => m.content.toLowerCase().includes(query));
     });
 
   return (
@@ -372,6 +386,7 @@ export default function ChatListPanel({
                 onClick={() => onSelectChat(chat.id)}
                 showHiddenControls={hiddenChatsEnabled}
                 onToggleHidden={toggleChatHidden}
+                searchHighlight={query || undefined}
               />
             );
           })}

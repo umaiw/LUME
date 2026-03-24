@@ -8,7 +8,7 @@ import { wsClient } from '@/lib/websocket';
 import { notifyIncomingMessage } from '@/lib/notifications';
 import { playMessageSound, initSoundPreference } from '@/lib/sounds';
 import { reconcileSettingsConsistency } from '@/lib/settingsConsistency';
-import { useAuthStore, useContactsStore, useChatsStore, useSessionsStore, useUIStore, useBlockedStore } from '@/stores';
+import { useAuthStore, useContactsStore, useChatsStore, useSessionsStore, useUIStore, useBlockedStore, type MessageAttachment } from '@/stores';
 import {
   loadChats,
   loadContacts,
@@ -183,6 +183,7 @@ async function appendIncomingMessage(params: {
   let timestamp = fallbackTimestamp;
   let selfDestructSeconds: number | null | undefined = null;
   let replyTo: { messageId: string; content: string; senderId: string } | undefined;
+  let attachment: MessageAttachment | undefined;
 
   if (ratchetEnvelope) {
     // v2: X3DH + Double Ratchet (lume-ratchet)
@@ -254,6 +255,7 @@ async function appendIncomingMessage(params: {
         timestamp?: unknown;
         selfDestruct?: unknown;
         replyTo?: unknown;
+        attachment?: unknown;
       };
       if (typeof decoded.content === 'string') {
         content = decoded.content;
@@ -273,6 +275,27 @@ async function appendIncomingMessage(params: {
         const rt = decoded.replyTo as Record<string, unknown>;
         if (typeof rt.messageId === 'string' && typeof rt.content === 'string' && typeof rt.senderId === 'string') {
           replyTo = { messageId: rt.messageId, content: rt.content, senderId: rt.senderId };
+        }
+      }
+      // Parse attachment metadata
+      if (decoded.attachment && typeof decoded.attachment === 'object') {
+        const att = decoded.attachment as Record<string, unknown>;
+        if (
+          typeof att.fileId === 'string' &&
+          typeof att.fileName === 'string' &&
+          typeof att.mimeType === 'string' &&
+          typeof att.size === 'number' &&
+          typeof att.key === 'string' &&
+          typeof att.nonce === 'string'
+        ) {
+          attachment = {
+            fileId: att.fileId,
+            fileName: att.fileName,
+            mimeType: att.mimeType,
+            size: att.size,
+            key: att.key,
+            nonce: att.nonce,
+          };
         }
       }
     } catch {
@@ -323,16 +346,21 @@ async function appendIncomingMessage(params: {
     };
   }
 
+  const msgType = attachment
+    ? (attachment.mimeType.startsWith('image/') ? 'image' : 'file')
+    : 'text';
+
   useChatsStore.getState().addMessage(targetChat.id, {
     id: messageId,
     chatId: targetChat.id,
     senderId,
     content,
-    type: 'text',
+    type: msgType,
     timestamp,
     status: 'delivered',
     selfDestructAt: selfDestructSeconds ? timestamp + selfDestructSeconds * 1000 : undefined,
     replyTo,
+    attachment,
   });
 
   return true;

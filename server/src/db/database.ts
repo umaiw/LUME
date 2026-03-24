@@ -68,6 +68,39 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_messages_sender ON pending_messages(sender_id);
   CREATE INDEX IF NOT EXISTS idx_request_signatures_created_at ON request_signatures(created_at);
 
+  CREATE TABLE IF NOT EXISTS files (
+    id TEXT PRIMARY KEY,
+    uploader_id TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    mime_hint TEXT NOT NULL DEFAULT 'application/octet-stream',
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    expires_at INTEGER,
+    FOREIGN KEY (uploader_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_files_uploader ON files(uploader_id);
+  CREATE INDEX IF NOT EXISTS idx_files_expires ON files(expires_at);
+
+  CREATE TABLE IF NOT EXISTS groups (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    creator_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS group_members (
+    group_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'member',
+    joined_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    PRIMARY KEY (group_id, user_id),
+    FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id);
+
   CREATE TABLE IF NOT EXISTS blocked_users (
     blocker_id TEXT NOT NULL,
     blocked_id TEXT NOT NULL,
@@ -107,6 +140,20 @@ try {
   }
 }
 
+// Migration: add profile columns (display_name, avatar_file_id)
+try {
+  const userCols = db.prepare(`PRAGMA table_info(users)`).all() as Array<{ name: string }>
+  const colNames = new Set(userCols.map(c => c.name))
+  if (!colNames.has('display_name')) {
+    db.exec(`ALTER TABLE users ADD COLUMN display_name TEXT`)
+  }
+  if (!colNames.has('avatar_file_id')) {
+    db.exec(`ALTER TABLE users ADD COLUMN avatar_file_id TEXT`)
+  }
+} catch {
+  // Acceptable for fresh DBs
+}
+
 // ==================== Prepared Statements ====================
 
 const insertUser = db.prepare(`
@@ -132,6 +179,10 @@ const updatePushToken = db.prepare(`
 
 const updateLastSeen = db.prepare(`
   UPDATE users SET last_seen = strftime('%s', 'now') WHERE id = ?
+`)
+
+const updateProfile = db.prepare(`
+  UPDATE users SET display_name = ?, avatar_file_id = ? WHERE id = ?
 `)
 
 const updateSignedPrekey = db.prepare(`
@@ -226,6 +277,75 @@ const getBlockedByUser = db.prepare(`
   SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
 `)
 
+const insertFile = db.prepare(`
+  INSERT INTO files (id, uploader_id, size, mime_hint, expires_at)
+  VALUES (?, ?, ?, ?, ?)
+`)
+
+const getFileById = db.prepare(`
+  SELECT * FROM files WHERE id = ?
+`)
+
+const deleteExpiredFiles = db.prepare(`
+  DELETE FROM files WHERE expires_at IS NOT NULL AND expires_at < ?
+`)
+
+const countUserFiles = db.prepare(`
+  SELECT COUNT(*) as count FROM files WHERE uploader_id = ?
+`)
+
+const insertGroup = db.prepare(`
+  INSERT INTO groups (id, name, creator_id) VALUES (?, ?, ?)
+`)
+
+const getGroupById = db.prepare(`
+  SELECT * FROM groups WHERE id = ?
+`)
+
+const insertGroupMember = db.prepare(`
+  INSERT OR IGNORE INTO group_members (group_id, user_id, role) VALUES (?, ?, ?)
+`)
+
+const removeGroupMember = db.prepare(`
+  DELETE FROM group_members WHERE group_id = ? AND user_id = ?
+`)
+
+const getGroupMembers = db.prepare(`
+  SELECT gm.*, u.username FROM group_members gm JOIN users u ON u.id = gm.user_id WHERE gm.group_id = ?
+`)
+
+const getUserGroups = db.prepare(`
+  SELECT g.* FROM groups g JOIN group_members gm ON g.id = gm.group_id WHERE gm.user_id = ?
+`)
+
+const deleteGroup = db.prepare(`
+  DELETE FROM groups WHERE id = ?
+`)
+
+export interface FileRecord {
+  id: string
+  uploader_id: string
+  size: number
+  mime_hint: string
+  created_at: number
+  expires_at: number | null
+}
+
+export interface Group {
+  id: string
+  name: string
+  creator_id: string
+  created_at: number
+}
+
+export interface GroupMember {
+  group_id: string
+  user_id: string
+  role: string
+  joined_at: number
+  username: string
+}
+
 export interface User {
   id: string
   username: string
@@ -234,6 +354,8 @@ export interface User {
   signed_prekey: string
   signed_prekey_signature: string
   push_token: string | null
+  display_name: string | null
+  avatar_file_id: string | null
   created_at: number
   last_seen: number | null
 }
@@ -283,6 +405,10 @@ export const database = {
 
   setPushToken(userId: string, token: string): void {
     updatePushToken.run(token, userId)
+  },
+
+  setProfile(userId: string, displayName: string | null, avatarFileId: string | null): void {
+    updateProfile.run(displayName, avatarFileId, userId)
   },
 
   touchLastSeen(userId: string): void {
@@ -420,6 +546,65 @@ export const database = {
   getBlockedUsers(userId: string): string[] {
     const rows = getBlockedByUser.all(userId) as Array<{ blocked_id: string }>
     return rows.map(r => r.blocked_id)
+  },
+
+  // ── Files ──
+
+  createFile(
+    id: string,
+    uploaderId: string,
+    size: number,
+    mimeHint: string,
+    expiresAt?: number
+  ): void {
+    insertFile.run(id, uploaderId, size, mimeHint, expiresAt ?? null)
+  },
+
+  getFileById(fileId: string): FileRecord | undefined {
+    return getFileById.get(fileId) as FileRecord | undefined
+  },
+
+  getUserFileCount(userId: string): number {
+    const result = countUserFiles.get(userId) as { count: number }
+    return result.count
+  },
+
+  purgeExpiredFiles(nowSec: number): number {
+    const result = deleteExpiredFiles.run(nowSec)
+    return result.changes
+  },
+
+  // ── Groups ──
+
+  createGroup(id: string, name: string, creatorId: string): void {
+    db.transaction(() => {
+      insertGroup.run(id, name, creatorId)
+      insertGroupMember.run(id, creatorId, 'admin')
+    })()
+  },
+
+  getGroupById(groupId: string): Group | undefined {
+    return getGroupById.get(groupId) as Group | undefined
+  },
+
+  addGroupMember(groupId: string, userId: string, role = 'member'): void {
+    insertGroupMember.run(groupId, userId, role)
+  },
+
+  removeGroupMember(groupId: string, userId: string): void {
+    removeGroupMember.run(groupId, userId)
+  },
+
+  getGroupMembers(groupId: string): GroupMember[] {
+    return getGroupMembers.all(groupId) as GroupMember[]
+  },
+
+  getUserGroups(userId: string): Group[] {
+    return getUserGroups.all(userId) as Group[]
+  },
+
+  deleteGroup(groupId: string): void {
+    deleteGroup.run(groupId)
   },
 
   close(): void {

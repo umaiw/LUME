@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState, memo } from "react";
-import type { Message } from "@/stores";
+import { useEffect, useState, useCallback, memo } from "react";
+import type { Message, MessageAttachment } from "@/stores";
 import { formatCountdown } from "./chatUtils";
+import { filesApi } from "@/lib/api";
+import { decryptFile, createFileUrl, formatFileSize, isImageMime } from "@/lib/fileEncryption";
+import { useAuthStore } from "@/stores";
 
 function StatusIcon({ status }: { status: Message["status"] }) {
   const base = "w-4 h-4";
@@ -80,6 +83,98 @@ function StatusIcon({ status }: { status: Message["status"] }) {
   }
 
   return null;
+}
+
+function AttachmentView({ attachment }: { attachment: MessageAttachment }) {
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const isImage = isImageMime(attachment.mimeType);
+
+  const handleDownload = useCallback(async () => {
+    const identityKeys = useAuthStore.getState().identityKeys;
+    if (!identityKeys) return;
+    setLoading(true);
+    setError(false);
+    try {
+      const { data, error: dlError } = await filesApi.download(attachment.fileId, identityKeys);
+      if (dlError || !data) throw new Error(dlError || 'Download failed');
+      const decrypted = decryptFile(data.data, attachment.nonce, attachment.key, attachment.mimeType, attachment.fileName);
+      if (!decrypted) throw new Error('Decryption failed');
+      const url = createFileUrl(decrypted.data, decrypted.mimeType);
+      if (isImage) {
+        setImageUrl(url);
+      } else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = attachment.fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [attachment, isImage]);
+
+  useEffect(() => {
+    if (isImage && !imageUrl && !loading && !error) {
+      void handleDownload();
+    }
+  }, [isImage, imageUrl, loading, error, handleDownload]);
+
+  useEffect(() => {
+    return () => {
+      if (imageUrl) URL.revokeObjectURL(imageUrl);
+    };
+  }, [imageUrl]);
+
+  if (isImage) {
+    return (
+      <div className="mb-2 rounded-[var(--radius-md)] overflow-hidden">
+        {imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imageUrl} alt={attachment.fileName} className="max-w-full max-h-[300px] rounded-[var(--radius-md)] object-contain" />
+        ) : loading ? (
+          <div className="w-48 h-32 bg-[var(--surface-strong)] rounded-[var(--radius-md)] flex items-center justify-center">
+            <span className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin text-[var(--text-muted)]" />
+          </div>
+        ) : error ? (
+          <button onClick={handleDownload} className="w-48 h-32 bg-[var(--surface-strong)] rounded-[var(--radius-md)] flex flex-col items-center justify-center gap-1 text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors">
+            <span className="text-[11px]">Failed to load</span>
+            <span className="text-[10px] underline">Retry</span>
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={handleDownload}
+      disabled={loading}
+      className="mb-2 flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-md)] bg-[var(--surface-strong)] border border-[var(--border)] hover:bg-[var(--surface)] transition-colors w-full text-left"
+    >
+      <div className="w-10 h-10 rounded bg-[var(--accent)]/10 flex items-center justify-center flex-shrink-0">
+        {loading ? (
+          <span className="w-4 h-4 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <svg className="w-5 h-5 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M14 2v6h6" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 18v-6m-3 3l3 3 3-3" />
+          </svg>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[12px] font-semibold text-[var(--text-primary)] truncate">{attachment.fileName}</p>
+        <p className="text-[11px] text-[var(--text-muted)]">
+          {error ? 'Download failed — tap to retry' : formatFileSize(attachment.size)}
+        </p>
+      </div>
+    </button>
+  );
 }
 
 function MessageBubble({
@@ -163,9 +258,13 @@ function MessageBubble({
               </p>
             </div>
           )}
-          <p className="break-words text-[15px] leading-relaxed">
-            {message.content}
-          </p>
+          {/* Attachment */}
+          {message.attachment && <AttachmentView attachment={message.attachment} />}
+          {message.content && (
+            <p className="break-words text-[15px] leading-relaxed">
+              {message.content}
+            </p>
+          )}
           <div
             className={`flex items-center justify-end gap-1.5 mt-1 ${isMine ? "opacity-80" : "text-[var(--text-muted)]"}`}
           >
@@ -268,6 +367,7 @@ export const MessageBubbleMemo = memo(
     prev.message.timestamp === next.message.timestamp &&
     prev.message.selfDestructAt === next.message.selfDestructAt &&
     prev.message.replyTo?.messageId === next.message.replyTo?.messageId &&
+    prev.message.attachment?.fileId === next.message.attachment?.fileId &&
     prev.replyAuthorName === next.replyAuthorName &&
     prev.onDelete === next.onDelete &&
     prev.onReply === next.onReply,

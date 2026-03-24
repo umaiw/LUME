@@ -7,6 +7,10 @@ import { WebSocketServer } from 'ws'
 
 import authRoutes from './routes/auth'
 import messageRoutes from './routes/messages'
+import fileRoutes from './routes/files'
+import groupRoutes from './routes/groups'
+import pushRoutes from './routes/push'
+import profileRoutes from './routes/profile'
 import { initWebSocket, getConnectionStats } from './websocket/handler'
 import database from './db/database'
 import { buildOriginAllowlist, isOriginAllowed } from './utils/originAllowlist'
@@ -26,7 +30,7 @@ if (TRUST_PROXY) {
 
 const PORT = Number(process.env.PORT) || 3001
 const HOST = process.env.HOST || '0.0.0.0'
-const JSON_LIMIT = process.env.JSON_LIMIT || '256kb'
+const JSON_LIMIT = process.env.JSON_LIMIT || '8mb'
 const WS_MAX_PAYLOAD_BYTES = Number(process.env.WS_MAX_PAYLOAD_BYTES || 64 * 1024)
 const IS_PROD = process.env.NODE_ENV === 'production'
 const ORIGIN_ALLOWLIST = buildOriginAllowlist(process.env.CLIENT_ORIGIN || 'http://localhost:3000')
@@ -138,6 +142,10 @@ if (process.env.LOG_HTTP === '1') {
 
 app.use('/api/auth', authRoutes)
 app.use('/api/messages', messageRoutes)
+app.use('/api/files', fileRoutes)
+app.use('/api/groups', groupRoutes)
+app.use('/api/push', pushRoutes)
+app.use('/api/profile', profileRoutes)
 
 app.get('/api/health', (_req, res) => {
   res.json({
@@ -206,6 +214,10 @@ const staleCleanupTimer = setInterval(() => {
   const purged = database.purgeStaleMessages(STALE_MSG_MAX_AGE_SEC)
   if (purged > 0) {
     console.log(`Purged ${purged} stale pending message(s)`)
+  }
+  const purgedFiles = database.purgeExpiredFiles(Math.floor(Date.now() / 1000))
+  if (purgedFiles > 0) {
+    console.log(`Purged ${purgedFiles} expired file(s)`)
   }
 }, STALE_MSG_CLEANUP_INTERVAL)
 staleCleanupTimer.unref()

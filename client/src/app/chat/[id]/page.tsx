@@ -28,7 +28,7 @@ import {
   useBlockedStore,
   type Message,
 } from "@/stores";
-import { messagesApi, authApi } from "@/lib/api";
+import { messagesApi, authApi, filesApi } from "@/lib/api";
 import { wsClient } from "@/lib/websocket";
 import { decodeBase64 } from "tweetnacl-util";
 import { verify } from "@/crypto/keys";
@@ -41,6 +41,9 @@ import {
   x3dhInitiate,
 } from "@/crypto/ratchet";
 import { computeSafetyNumber } from "@/crypto/safetyNumber";
+import type { PendingAttachment } from "@/components/chat/ChatInput";
+import { encryptFile, readFileAsUint8Array, isImageMime } from "@/lib/fileEncryption";
+import type { MessageAttachment } from "@/stores";
 
 interface ChatPageProps {
   params: Promise<{ id: string }>;
@@ -102,6 +105,7 @@ export default function ChatPage({ params }: ChatPageProps) {
   const [selfDestructTime, setSelfDestructTime] = useState<number | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
 
   const isValidChatId = /^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/.test(chatId);
   const chat = isValidChatId ? chats.find((c) => c.id === chatId) : undefined;
@@ -237,6 +241,18 @@ export default function ChatPage({ params }: ChatPageProps) {
     };
   }, [contactId]);
 
+  const handleAttach = useCallback((file: File) => {
+    const preview = isImageMime(file.type) ? URL.createObjectURL(file) : undefined;
+    setPendingAttachment({ file, preview });
+  }, []);
+
+  const handleCancelAttachment = useCallback(() => {
+    if (pendingAttachment?.preview) {
+      URL.revokeObjectURL(pendingAttachment.preview);
+    }
+    setPendingAttachment(null);
+  }, [pendingAttachment]);
+
   const handleDeleteMessage = useCallback(
     (messageId: string) => {
       if (chatId) {
@@ -254,7 +270,9 @@ export default function ChatPage({ params }: ChatPageProps) {
   );
 
   const handleSend = async () => {
-    if (!messageText.trim() || !contact || !userId || !identityKeys) return;
+    const hasText = messageText.trim().length > 0;
+    const hasAttachment = !!pendingAttachment;
+    if ((!hasText && !hasAttachment) || !contact || !userId || !identityKeys) return;
 
     setSending(true);
 
@@ -262,12 +280,45 @@ export default function ChatPage({ params }: ChatPageProps) {
     const timestamp = Date.now();
     const outgoingText = messageText;
 
+    // Upload and encrypt file attachment if present
+    let attachmentMeta: MessageAttachment | undefined;
+    if (pendingAttachment) {
+      try {
+        const fileData = await readFileAsUint8Array(pendingAttachment.file);
+        const encrypted = encryptFile(fileData, pendingAttachment.file.type, pendingAttachment.file.name);
+        const { data: uploadResult, error: uploadError } = await filesApi.upload(
+          encrypted.ciphertext,
+          encrypted.mimeType,
+          identityKeys,
+        );
+        if (uploadError || !uploadResult) {
+          throw new Error(uploadError || 'File upload failed');
+        }
+        attachmentMeta = {
+          fileId: uploadResult.fileId,
+          fileName: encrypted.fileName,
+          mimeType: encrypted.mimeType,
+          size: encrypted.originalSize,
+          key: encrypted.key,
+          nonce: encrypted.nonce,
+        };
+      } catch (err) {
+        if (process.env.NODE_ENV !== 'production') console.error('File upload error:', err);
+        setSending(false);
+        return;
+      }
+    }
+
+    const msgType = attachmentMeta
+      ? (isImageMime(attachmentMeta.mimeType) ? 'image' : 'file')
+      : 'text';
+
     const message: Message = {
       id: messageId,
       chatId,
       senderId: userId,
       content: outgoingText,
-      type: "text",
+      type: msgType as Message['type'],
       timestamp,
       status: "sending",
       selfDestructAt: selfDestructTime
@@ -276,11 +327,16 @@ export default function ChatPage({ params }: ChatPageProps) {
       replyTo: replyingTo
         ? { messageId: replyingTo.id, content: replyingTo.content, senderId: replyingTo.senderId }
         : undefined,
+      attachment: attachmentMeta,
     };
 
     addMessage(chatId, message);
     setMessageText("");
     setReplyingTo(null);
+    if (pendingAttachment?.preview) {
+      URL.revokeObjectURL(pendingAttachment.preview);
+    }
+    setPendingAttachment(null);
 
     try {
       const replyRef = replyingTo
@@ -291,6 +347,7 @@ export default function ChatPage({ params }: ChatPageProps) {
         timestamp,
         selfDestruct: selfDestructTime ?? null,
         ...(replyRef ? { replyTo: replyRef } : {}),
+        ...(attachmentMeta ? { attachment: attachmentMeta } : {}),
       });
       const plaintextBytes = new TextEncoder().encode(plaintext);
 
@@ -577,6 +634,9 @@ export default function ChatPage({ params }: ChatPageProps) {
         onKeyDown={handleKeyDown}
         onToggleOptions={() => setShowOptions((v) => !v)}
         onCancelReply={() => setReplyingTo(null)}
+        attachment={pendingAttachment}
+        onAttach={handleAttach}
+        onCancelAttachment={handleCancelAttachment}
       />
     </div>
   );

@@ -96,6 +96,49 @@ async function navigationHandler(request) {
   }
 }
 
+// --- Push Notifications ---
+
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+
+  let payload;
+  try {
+    payload = event.data.json();
+  } catch {
+    payload = { title: "LUME", body: "New message" };
+  }
+
+  const options = {
+    body: payload.body || "New message",
+    icon: "/lume-icon.png",
+    badge: "/lume-icon.png",
+    tag: payload.tag || "lume-notification",
+    data: { url: "/" },
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title || "LUME", options)
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || "/";
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if (client.url.includes(self.location.origin) && "focus" in client) {
+            return client.focus();
+          }
+        }
+        return self.clients.openWindow(url);
+      })
+  );
+});
+
 // --- Router ---
 
 self.addEventListener("fetch", (event) => {

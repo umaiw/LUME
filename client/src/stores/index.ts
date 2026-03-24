@@ -126,6 +126,17 @@ export interface MessageReplyRef {
     senderId: string;
 }
 
+export interface MessageAttachment {
+    fileId: string;
+    fileName: string;
+    mimeType: string;
+    size: number;
+    /** NaCl secretbox key (base64) — needed to decrypt the file */
+    key: string;
+    /** NaCl secretbox nonce (base64) */
+    nonce: string;
+}
+
 export interface Message {
     id: string;
     chatId: string;
@@ -137,6 +148,7 @@ export interface Message {
     selfDestructAt?: number;
     isDeleted?: boolean;
     replyTo?: MessageReplyRef;
+    attachment?: MessageAttachment;
 }
 
 export interface Chat {
