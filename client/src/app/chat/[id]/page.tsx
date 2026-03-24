@@ -103,7 +103,8 @@ export default function ChatPage({ params }: ChatPageProps) {
   const [showProfile, setShowProfile] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
 
-  const chat = chats.find((c) => c.id === chatId);
+  const isValidChatId = /^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/.test(chatId);
+  const chat = isValidChatId ? chats.find((c) => c.id === chatId) : undefined;
   const contact = contacts.find((c) => c.id === chat?.contactId);
   const contactId = contact?.id;
 
@@ -378,7 +379,7 @@ export default function ChatPage({ params }: ChatPageProps) {
         });
       }
     } catch (sendError) {
-      console.error("Send message error:", sendError);
+      if (process.env.NODE_ENV !== 'production') console.error("Send message error:", sendError);
       const msg =
         sendError instanceof Error ? sendError.message : String(sendError);
       if (

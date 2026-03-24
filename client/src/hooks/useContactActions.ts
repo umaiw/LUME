@@ -94,7 +94,7 @@ export function useContactActions() {
 
       openChatForContact(data.id);
     } catch (e) {
-      console.error("Add contact error:", e);
+      if (process.env.NODE_ENV !== 'production') console.error("Add contact error:", e);
       setAddContactError("Error adding contact");
     } finally {
       setAddContactLoading(false);

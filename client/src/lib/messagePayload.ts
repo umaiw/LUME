@@ -124,6 +124,10 @@ export function decodeMessagePayload(
         return null;
     }
 
+    if (process.env.NODE_ENV !== 'production') {
+        console.warn('[messagePayload] Legacy plaintext envelope detected — message is not end-to-end encrypted');
+    }
+
     return {
         content: legacy.content,
         timestamp: typeof legacy.timestamp === 'number' ? legacy.timestamp : Date.now(),

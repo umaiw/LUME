@@ -11,6 +11,9 @@ import {
   savePreKeyMaterial,
   deriveMasterKeyFromPin,
   savePinHash,
+  checkPinLockout,
+  recordPinFailure,
+  resetPinFailures,
 } from "@/crypto/storage";
 import { useAuthStore } from "@/stores";
 import { authApi } from "@/lib/api";
@@ -46,11 +49,15 @@ export default function UnlockPage() {
     setLoading(true);
 
     try {
+      // Check persistent lockout before attempting
+      await checkPinLockout();
+
       // Derive the master key from the entered PIN — PIN is discarded after this
       const masterKey = await deriveMasterKeyFromPin(pin);
       const identity = await loadIdentityKeys(masterKey, pin);
 
       if (!identity) {
+        await recordPinFailure();
         const nextAttempts = attempts + 1;
         setAttempts(nextAttempts);
         if (nextAttempts >= 5) {
@@ -60,6 +67,8 @@ export default function UnlockPage() {
         setError("Invalid PIN");
         return;
       }
+
+      await resetPinFailures();
 
       const settings = await loadSettings();
       let resolvedUserId = settings.userId;
@@ -128,8 +137,9 @@ export default function UnlockPage() {
       setAuth(resolvedUserId, resolvedUsername, identity, masterKey);
       router.push("/chats");
     } catch (unlockError) {
-      console.error("Unlock error:", unlockError);
-      setError("Unlock error");
+      if (process.env.NODE_ENV !== 'production') console.error("Unlock error:", unlockError);
+      const msg = unlockError instanceof Error ? unlockError.message : "Unlock error";
+      setError(msg.startsWith("Too many") ? msg : "Unlock error");
     } finally {
       setLoading(false);
     }

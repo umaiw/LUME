@@ -17,11 +17,21 @@ function getCanonicalApiPath(req: Request): string {
 
 export const requireSignature = (req: Request, res: Response, next: NextFunction) => {
   try {
-    const identityKey = req.headers['x-lume-identity-key'] as string
-    const signature = req.headers['x-lume-signature'] as string
-    const timestamp = req.headers['x-lume-timestamp'] as string
-    const nonce = req.headers['x-lume-nonce'] as string | undefined
-    const signedPath = req.headers['x-lume-path'] as string | undefined
+    const identityKey = Array.isArray(req.headers['x-lume-identity-key'])
+      ? req.headers['x-lume-identity-key'][0]
+      : (req.headers['x-lume-identity-key'] as string)
+    const signature = Array.isArray(req.headers['x-lume-signature'])
+      ? req.headers['x-lume-signature'][0]
+      : (req.headers['x-lume-signature'] as string)
+    const timestamp = Array.isArray(req.headers['x-lume-timestamp'])
+      ? req.headers['x-lume-timestamp'][0]
+      : (req.headers['x-lume-timestamp'] as string)
+    const nonce = Array.isArray(req.headers['x-lume-nonce'])
+      ? req.headers['x-lume-nonce'][0]
+      : (req.headers['x-lume-nonce'] as string | undefined)
+    const signedPath = Array.isArray(req.headers['x-lume-path'])
+      ? req.headers['x-lume-path'][0]
+      : (req.headers['x-lume-path'] as string | undefined)
     const requestMethod = req.method.toUpperCase()
     const requestPath = getCanonicalApiPath(req)
 
@@ -83,7 +93,6 @@ export const requireSignature = (req: Request, res: Response, next: NextFunction
       bodyCandidates.push(JSON.stringify(req.body))
     } else {
       bodyCandidates.push('')
-      bodyCandidates.push('{}')
     }
 
     const isValid = bodyCandidates.some(body => {

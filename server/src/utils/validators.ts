@@ -1,7 +1,7 @@
 import { decodeBase64 } from 'tweetnacl-util'
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,32}$/
-const UUID_LIKE_REGEX = /^[a-fA-F0-9-]{8,128}$/
+const UUID_LIKE_REGEX = /^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/
 
 export function isValidUsername(username: unknown): username is string {
   if (typeof username !== 'string') return false

@@ -23,7 +23,13 @@ export default function BackupModal({
   const [backupPin, setBackupPin] = useState("");
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Backup & Restore">
+    <Modal isOpen={isOpen} onClose={() => {
+      setBackupOutput("");
+      setImportInput("");
+      setBackupPin("");
+      setBackupStatus(null);
+      onClose();
+    }} title="Backup & Restore">
       <div className="space-y-4">
         <p className="text-[var(--text-secondary)] text-sm">
           Export keys/chats/contacts as an encrypted blob. Enter your PIN to
@@ -57,7 +63,8 @@ export default function BackupModal({
                 "Backup ready (copied to clipboard if allowed).",
               );
             } catch (e) {
-              setBackupStatus("Backup error: " + (e as Error).message);
+              if (process.env.NODE_ENV !== 'production') console.error('Backup export error:', e);
+              setBackupStatus("Backup failed. Check your PIN and try again.");
             } finally {
               setBackupLoading(false);
             }
@@ -102,7 +109,8 @@ export default function BackupModal({
                 await reconcileRestoreConsistency();
                 setBackupStatus("Backup restored. Restart the application.");
               } catch (e) {
-                setBackupStatus("Restore error: " + (e as Error).message);
+                if (process.env.NODE_ENV !== 'production') console.error('Backup restore error:', e);
+                setBackupStatus("Restore failed. Check your data and PIN.");
               } finally {
                 setBackupLoading(false);
               }

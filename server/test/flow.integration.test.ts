@@ -365,13 +365,15 @@ describe('integration: account deletion lifecycle', () => {
     const alice = makeUser('alice_' + crypto.randomUUID().slice(0, 4));
     const aliceId = await registerUser(alice);
 
-    const checkBefore = await request(app).get(`/api/auth/check/${alice.username}`);
+    const checkBeforeHeaders = signHeaders('GET', `/auth/check/${alice.username}`, {}, alice.idKey);
+    const checkBefore = await request(app).get(`/api/auth/check/${alice.username}`).set(checkBeforeHeaders);
     expect(checkBefore.body.available).toBe(false);
 
     const deleteHeaders = signHeaders('DELETE', `/auth/user/${aliceId}`, {}, alice.idKey);
     await request(app).delete(`/api/auth/user/${aliceId}`).set(deleteHeaders);
 
-    const checkAfter = await request(app).get(`/api/auth/check/${alice.username}`);
+    const checkAfterHeaders = signHeaders('GET', `/auth/check/${alice.username}`, {}, alice.idKey);
+    const checkAfter = await request(app).get(`/api/auth/check/${alice.username}`).set(checkAfterHeaders);
     expect(checkAfter.status).toBe(200);
     expect(checkAfter.body.available).toBe(true);
   });
@@ -463,7 +465,8 @@ describe('integration: account deletion lifecycle', () => {
     expect(bundleRes.status).toBe(404);
 
     // Username available again
-    const checkRes = await request(app).get(`/api/auth/check/${alice.username}`);
+    const checkHeaders = signHeaders('GET', `/auth/check/${alice.username}`, {}, bob.idKey);
+    const checkRes = await request(app).get(`/api/auth/check/${alice.username}`).set(checkHeaders);
     expect(checkRes.status).toBe(200);
     expect(checkRes.body.available).toBe(true);
 

@@ -101,7 +101,7 @@ export function initWebSocket(wss: WebSocketServer): void {
     validTimestamps.push(now)
     connectionRateLimits.set(ip, validTimestamps)
 
-    const skipOriginCheck = process.env.SKIP_ORIGIN_CHECK === '1'
+    const skipOriginCheck = process.env.SKIP_ORIGIN_CHECK === '1' && process.env.NODE_ENV !== 'production'
     if (!skipOriginCheck) {
       const origin = (req.headers.origin as string | undefined) || ''
       if (!isOriginAllowed(origin, ORIGIN_ALLOWLIST)) {

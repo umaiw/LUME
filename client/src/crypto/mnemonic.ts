@@ -6,7 +6,7 @@
 import * as bip39 from 'bip39';
 import nacl from 'tweetnacl';
 import { encodeBase64 } from 'tweetnacl-util';
-import type { IdentityKeys } from './keys';
+import { zeroBytes, type IdentityKeys } from './keys';
 
 /**
  * Генерирует новую мнемоническую фразу (12 слов по умолчанию)
@@ -37,12 +37,16 @@ export async function mnemonicToSeed(mnemonic: string, passphrase: string = ''):
 function deriveSigningKeyPair(seed: Uint8Array): { publicKey: string; secretKey: string } {
     // Используем первые 32 байта seed для генерации ключей подписи
     const signingSeed = seed.slice(0, 32);
-    const keyPair = nacl.sign.keyPair.fromSeed(signingSeed);
+    try {
+        const keyPair = nacl.sign.keyPair.fromSeed(signingSeed);
 
-    return {
-        publicKey: encodeBase64(keyPair.publicKey),
-        secretKey: encodeBase64(keyPair.secretKey),
-    };
+        return {
+            publicKey: encodeBase64(keyPair.publicKey),
+            secretKey: encodeBase64(keyPair.secretKey),
+        };
+    } finally {
+        zeroBytes(signingSeed);
+    }
 }
 
 /**
@@ -52,6 +56,7 @@ function deriveExchangeKeyPair(seed: Uint8Array): { publicKey: string; secretKey
     // Используем следующие 32 байта seed для ключей обмена
     const exchangeSeed = seed.slice(32, 64);
     const keyPair = nacl.box.keyPair.fromSecretKey(exchangeSeed);
+    exchangeSeed.fill(0);
 
     return {
         publicKey: encodeBase64(keyPair.publicKey),
@@ -72,10 +77,12 @@ export async function recoverIdentityFromMnemonic(
 
     const seed = await mnemonicToSeed(mnemonic, passphrase);
 
-    return {
+    const result = {
         signing: deriveSigningKeyPair(seed),
         exchange: deriveExchangeKeyPair(seed),
     };
+    seed.fill(0);
+    return result;
 }
 
 /**

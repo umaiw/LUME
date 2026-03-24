@@ -27,7 +27,7 @@ export default function AddContactModal({
         <Input
           label="Recipient Username"
           value={username}
-          onChange={(e) => onUsernameChange(e.target.value.replace(/^@+/, ""))}
+          onChange={(e) => onUsernameChange(e.target.value.replace(/^@+/, "").replace(/[^a-zA-Z0-9_]/g, "").slice(0, 32))}
           placeholder="username"
           error={error}
           icon={<span className="text-[var(--text-muted)]">@</span>}

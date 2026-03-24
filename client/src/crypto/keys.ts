@@ -58,7 +58,11 @@ export function generateIdentityKeys(): IdentityKeys {
  */
 export function sign(message: Uint8Array, secretKey: string): Uint8Array {
   const secretKeyBytes = decodeBase64(secretKey);
-  return nacl.sign.detached(message, secretKeyBytes);
+  try {
+    return nacl.sign.detached(message, secretKeyBytes);
+  } finally {
+    zeroBytes(secretKeyBytes);
+  }
 }
 
 /**
@@ -85,17 +89,21 @@ export function encrypt(
   const recipientPubKeyBytes = decodeBase64(recipientPublicKey);
   const senderSecKeyBytes = decodeBase64(senderSecretKey);
 
-  const ciphertext = nacl.box(
-    message,
-    nonce,
-    recipientPubKeyBytes,
-    senderSecKeyBytes,
-  );
+  try {
+    const ciphertext = nacl.box(
+      message,
+      nonce,
+      recipientPubKeyBytes,
+      senderSecKeyBytes,
+    );
 
-  return {
-    ciphertext: encodeBase64(ciphertext),
-    nonce: encodeBase64(nonce),
-  };
+    return {
+      ciphertext: encodeBase64(ciphertext),
+      nonce: encodeBase64(nonce),
+    };
+  } finally {
+    zeroBytes(senderSecKeyBytes);
+  }
 }
 
 /**
@@ -112,12 +120,16 @@ export function decrypt(
   const senderPubKeyBytes = decodeBase64(senderPublicKey);
   const recipientSecKeyBytes = decodeBase64(recipientSecretKey);
 
-  return nacl.box.open(
-    ciphertextBytes,
-    nonceBytes,
-    senderPubKeyBytes,
-    recipientSecKeyBytes,
-  );
+  try {
+    return nacl.box.open(
+      ciphertextBytes,
+      nonceBytes,
+      senderPubKeyBytes,
+      recipientSecKeyBytes,
+    );
+  } finally {
+    zeroBytes(recipientSecKeyBytes);
+  }
 }
 
 /**
@@ -180,6 +192,11 @@ export function generateSignedPreKey(signingKey: SigningKeyPair): {
     signedPreKey,
     signature: encodeBase64(signatureBytes),
   };
+}
+
+/** Zero out a Uint8Array to prevent key material from lingering in memory. */
+export function zeroBytes(arr: Uint8Array): void {
+  arr.fill(0);
 }
 
 /**

@@ -327,7 +327,7 @@ router.post('/bundle', requireSignature, bundleRateLimit, (req: Request, res: Re
 })
 
 // GET /auth/check/:username
-router.get('/check/:username', usernameCheckRateLimit, (req: Request, res: Response) => {
+router.get('/check/:username', requireSignature, usernameCheckRateLimit, (req: Request, res: Response) => {
   try {
     const username = (req.params.username as string).trim()
 

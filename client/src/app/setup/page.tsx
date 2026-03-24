@@ -70,6 +70,8 @@ export default function SetupPage() {
     await navigator.clipboard.writeText(mnemonic);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+    // Auto-clear clipboard after 15 seconds to prevent lingering mnemonic
+    setTimeout(() => navigator.clipboard.writeText('').catch(() => {}), 15000);
   };
 
   const handleConfirmBackup = () => {
@@ -182,13 +184,14 @@ export default function SetupPage() {
         userId: data!.id,
       });
       setAuth(data!.id, username, identity, masterKey);
+      setMnemonic("");
       setStep("complete");
 
       setTimeout(() => {
         router.push("/chats");
       }, 1800);
     } catch (registrationError) {
-      console.error("Registration error:", registrationError);
+      if (process.env.NODE_ENV !== 'production') console.error("Registration error:", registrationError);
       setUsernameError("Registration error");
     } finally {
       setLoading(false);
