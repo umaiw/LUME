@@ -34,7 +34,7 @@ import {
   type EncryptedMessage,
   type DoubleRatchetSession,
 } from '@/crypto/ratchet';
-import { generateExchangeKeyPair, type KeyPair } from '@/crypto/keys';
+import { generateExchangeKeyPair, zeroBytes, type KeyPair } from '@/crypto/keys';
 import { checkAndRotateSpk } from '@/crypto/spkRotation';
 
 function reportCryptoIssue(message: string) {
@@ -56,6 +56,17 @@ function cloneSession(s: DoubleRatchetSession): DoubleRatchetSession {
       Array.from(s.skippedMessageKeys.entries()).map(([k, v]) => [k, new Uint8Array(v)])
     ),
   };
+}
+
+/** Zero key material in a session that is no longer needed (e.g. replaced by a clone). */
+function zeroSessionKeys(s: DoubleRatchetSession): void {
+  zeroBytes(s.rootKey);
+  if (s.sendingChainKey) zeroBytes(s.sendingChainKey);
+  if (s.receivingChainKey) zeroBytes(s.receivingChainKey);
+  for (const mk of s.skippedMessageKeys.values()) {
+    zeroBytes(mk);
+  }
+  s.skippedMessageKeys.clear();
 }
 
 // Per-sender lock to prevent concurrent ratchet session mutations
@@ -271,7 +282,8 @@ async function appendIncomingMessage(params: {
       return false;
     }
 
-    // Decrypt succeeded — commit the advanced session state
+    // Decrypt succeeded — zero old key material, then commit the advanced session state
+    zeroSessionKeys(session);
     session = sessionClone;
 
     try {
