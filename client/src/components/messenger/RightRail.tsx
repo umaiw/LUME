@@ -58,7 +58,7 @@ export default function RightRail({
     <div className="lume-panel h-full min-h-0 rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] overflow-hidden">
       <div className="h-full flex flex-col items-center px-3 pt-5 pb-4">
         <p className="text-[9px] uppercase tracking-[0.2em] text-[var(--text-muted)] mb-3 flex-shrink-0">Contacts</p>
-        <div className="flex-1 min-h-0 overflow-y-auto w-full flex flex-col items-center gap-3">
+        <div className="flex-1 min-h-0 overflow-y-auto w-full flex flex-col items-center gap-3 pt-1">
           {contactOrder.map((c) => (
             <AvatarButton
               key={c.id}
