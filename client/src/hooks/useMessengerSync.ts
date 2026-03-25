@@ -32,12 +32,30 @@ import {
   serializeSession,
   x3dhRespond,
   type EncryptedMessage,
+  type DoubleRatchetSession,
 } from '@/crypto/ratchet';
 import { generateExchangeKeyPair, type KeyPair } from '@/crypto/keys';
 import { checkAndRotateSpk } from '@/crypto/spkRotation';
 
 function reportCryptoIssue(message: string) {
   useUIStore.getState().setCryptoBanner({ level: 'warning', message });
+}
+
+/** Deep-clone a ratchet session so we can attempt decrypt without mutating the original. */
+function cloneSession(s: DoubleRatchetSession): DoubleRatchetSession {
+  return {
+    dhSendingKeyPair: { publicKey: s.dhSendingKeyPair.publicKey, secretKey: s.dhSendingKeyPair.secretKey },
+    dhReceivingPublicKey: s.dhReceivingPublicKey,
+    rootKey: new Uint8Array(s.rootKey),
+    sendingChainKey: s.sendingChainKey ? new Uint8Array(s.sendingChainKey) : null,
+    receivingChainKey: s.receivingChainKey ? new Uint8Array(s.receivingChainKey) : null,
+    sendingMessageNumber: s.sendingMessageNumber,
+    receivingMessageNumber: s.receivingMessageNumber,
+    previousSendingChainLength: s.previousSendingChainLength,
+    skippedMessageKeys: new Map(
+      Array.from(s.skippedMessageKeys.entries()).map(([k, v]) => [k, new Uint8Array(v)])
+    ),
+  };
 }
 
 // Per-sender lock to prevent concurrent ratchet session mutations
@@ -236,9 +254,13 @@ async function appendIncomingMessage(params: {
       nonce: ratchetEnvelope.nonce,
     };
 
+    // Work on a clone so a failed decrypt does not corrupt the stored session.
+    // ratchetDecrypt mutates the session (dhRatchet, skipMessageKeys). If decryption
+    // fails on the original, the session diverges from the sender permanently.
+    const sessionClone = cloneSession(session);
     let plaintextBytes: Uint8Array | null = null;
     try {
-      plaintextBytes = ratchetDecrypt(session, encrypted);
+      plaintextBytes = ratchetDecrypt(sessionClone, encrypted);
     } catch {
       reportCryptoIssue('Secure message decrypt failed. Session may be out of sync.');
       return false;
@@ -248,6 +270,9 @@ async function appendIncomingMessage(params: {
       reportCryptoIssue('Secure message decrypt failed. Session may be out of sync.');
       return false;
     }
+
+    // Decrypt succeeded — commit the advanced session state
+    session = sessionClone;
 
     try {
       const decoded = JSON.parse(new TextDecoder().decode(plaintextBytes)) as {
