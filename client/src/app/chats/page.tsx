@@ -20,6 +20,7 @@ import { useContactActions } from "@/hooks/useContactActions";
 import { usePanic } from "@/hooks/usePanic";
 import { groupsApi } from "@/lib/api";
 import { useAuthStore, useContactsStore, useChatsStore, useGroupsStore } from "@/stores";
+import { useContactAvatars } from "@/hooks/useContactAvatars";
 
 export default function ChatsPage() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function ChatsPage() {
   const { contacts } = useContactsStore();
   const { chats, activeChatId, setActiveChat } = useChatsStore();
   const { groups, activeGroupId, setGroups, setActiveGroup } = useGroupsStore();
+  const avatarMap = useContactAvatars(contacts);
 
   const {
     showAddContact,
@@ -160,6 +162,7 @@ export default function ChatsPage() {
       onSelectChat={handleSelectChat}
       onNewChat={() => setShowAddContact(true)}
       onNewGroup={() => setShowCreateGroup(true)}
+      avatarMap={avatarMap}
     />
   );
 
@@ -193,6 +196,7 @@ export default function ChatsPage() {
                 chats={chats}
                 activeChatId={activeChatId}
                 onOpenContact={openChatForContact}
+                avatarMap={avatarMap}
               />
             ) : undefined
           }

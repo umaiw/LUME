@@ -30,6 +30,7 @@ import {
 } from "@/stores";
 import { messagesApi, authApi, filesApi, profileApi } from "@/lib/api";
 import { downloadAndCacheAvatar, getCachedAvatarUrl } from "@/lib/avatarCache";
+import { useContactAvatars } from "@/hooks/useContactAvatars";
 import { wsClient } from "@/lib/websocket";
 import { decodeBase64 } from "tweetnacl-util";
 import { verify } from "@/crypto/keys";
@@ -62,6 +63,7 @@ export default function ChatPage({ params }: ChatPageProps) {
 
   const { userId, identityKeys, masterKey } = useAuthStore();
   const { contacts, removeContact } = useContactsStore();
+  const avatarMap = useContactAvatars(contacts);
   const { upsertSession, deleteSession } = useSessionsStore();
   const {
     chats,
@@ -585,6 +587,7 @@ export default function ChatPage({ params }: ChatPageProps) {
         router.push(`/chat/${id}`);
       }}
       onNewChat={() => setShowAddContact(true)}
+      avatarMap={avatarMap}
     />
   );
 
@@ -699,6 +702,7 @@ export default function ChatPage({ params }: ChatPageProps) {
                 chats={chats}
                 activeChatId={activeChatId}
                 onOpenContact={openChatForContact}
+                avatarMap={avatarMap}
               />
             ) : undefined
           }

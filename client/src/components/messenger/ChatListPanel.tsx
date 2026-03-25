@@ -26,6 +26,7 @@ function ChatRow({
   showHiddenControls,
   onToggleHidden,
   searchHighlight,
+  avatarUrl,
 }: {
   chat: Chat;
   contact: Contact;
@@ -34,6 +35,7 @@ function ChatRow({
   showHiddenControls: boolean;
   onToggleHidden: (chatId: string) => void;
   searchHighlight?: string;
+  avatarUrl?: string | null;
 }) {
   const timeLabel = formatTime(chat.lastMessage?.timestamp);
   const isBlocked = useBlockedStore((s) => !!s.blockedIds[contact.id]);
@@ -59,7 +61,9 @@ function ChatRow({
     >
       {selected ? <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-[var(--accent)]" aria-hidden="true" /> : null}
       <div className="flex items-center gap-3">
-        <Avatar username={contact.username} size="lg" />
+        <div className="w-11 h-11 rounded-full border border-[var(--border)] flex-shrink-0 overflow-hidden">
+          <Avatar src={avatarUrl} username={contact.username} size="lg" />
+        </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-3">
@@ -182,6 +186,7 @@ export default function ChatListPanel({
   onSelectChat,
   onNewChat,
   onNewGroup,
+  avatarMap,
 }: {
   chats: Chat[];
   contacts: Contact[];
@@ -191,6 +196,7 @@ export default function ChatListPanel({
   onSelectChat: (chatId: string) => void;
   onNewChat: () => void;
   onNewGroup?: () => void;
+  avatarMap?: Record<string, string>;
 }) {
   const router = useRouter();
   const masterKey = useAuthStore((s) => s.masterKey);
@@ -484,6 +490,7 @@ export default function ChatListPanel({
                     showHiddenControls={hiddenChatsEnabled}
                     onToggleHidden={toggleChatHidden}
                     searchHighlight={query || undefined}
+                    avatarUrl={avatarMap?.[contact.id]}
                   />
                 </div>
               );
