@@ -28,7 +28,8 @@ import {
   useBlockedStore,
   type Message,
 } from "@/stores";
-import { messagesApi, authApi, filesApi } from "@/lib/api";
+import { messagesApi, authApi, filesApi, profileApi } from "@/lib/api";
+import { downloadAndCacheAvatar, getCachedAvatarUrl } from "@/lib/avatarCache";
 import { wsClient } from "@/lib/websocket";
 import { decodeBase64 } from "tweetnacl-util";
 import { verify } from "@/crypto/keys";
@@ -106,6 +107,7 @@ export default function ChatPage({ params }: ChatPageProps) {
   const [showProfile, setShowProfile] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
+  const [contactAvatarUrl, setContactAvatarUrl] = useState<string | null>(null);
 
   const isValidChatId = /^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/.test(chatId);
   const chat = isValidChatId ? chats.find((c) => c.id === chatId) : undefined;
@@ -128,6 +130,38 @@ export default function ChatPage({ params }: ChatPageProps) {
           theirExchangeIdentityPublicKey: contact.exchangeKey,
         })
       : null;
+
+  // Load contact avatar
+  useEffect(() => {
+    if (!contactId || !identityKeys) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await profileApi.get(contactId, identityKeys);
+        if (cancelled || !res.data?.avatarFileId) return;
+
+        const fid = res.data.avatarFileId;
+        const cached = getCachedAvatarUrl(fid);
+        if (cached) {
+          setContactAvatarUrl(cached);
+          return;
+        }
+
+        const keys = identityKeys;
+        const url = await downloadAndCacheAvatar(fid, async () => {
+          const r = await filesApi.download(fid, keys);
+          if (!r.data) return null;
+          return { data: r.data.data, mimeHint: r.data.mimeHint };
+        });
+        if (!cancelled) setContactAvatarUrl(url);
+      } catch {
+        // Best effort
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [contactId, identityKeys]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -558,6 +592,7 @@ export default function ChatPage({ params }: ChatPageProps) {
     <div className="lume-panel h-full min-h-0 rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] overflow-hidden flex flex-col">
       <ChatHeader
         contact={contact}
+        avatarUrl={contactAvatarUrl}
         isTyping={isTyping}
         selfDestructTime={selfDestructTime}
         showOptions={showOptions}
@@ -696,6 +731,7 @@ export default function ChatPage({ params }: ChatPageProps) {
         isContactBlocked={isContactBlocked}
         onDeleteContact={handleDeleteContact}
         onHideChat={handleHideChat}
+        avatarUrl={contactAvatarUrl}
       />
 
       <BackupModal
