@@ -34,7 +34,7 @@ export default function HomePage() {
         <ThemeToggle />
       </div>
       <div className="w-full max-w-md px-0 relative z-10">
-        <div className="auth-card lume-panel p-5 sm:p-8">
+        <div className="auth-card lume-panel p-5 sm:p-8 animate-fade-in-scale">
           <div className="text-center mb-8">
             <h1 className="text-2xl sm:text-3xl font-semibold uppercase tracking-[0.28em] text-[var(--text-primary)]">
               L U M E

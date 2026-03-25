@@ -349,7 +349,7 @@ export default function ChatListPanel({
   };
 
   return (
-    <div className="lume-panel h-full min-h-0 rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] overflow-hidden flex flex-col">
+    <div className="lume-panel h-full min-h-0 rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] overflow-hidden flex flex-col animate-fade-in">
       <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-[var(--border)]/70 flex-shrink-0">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -471,30 +471,32 @@ export default function ChatListPanel({
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="py-1">
           {activeTab === 'chats' ? (
-            filtered.map((chat) => {
+            filtered.map((chat, i) => {
               const contact = contacts.find((c) => c.id === chat.contactId);
               if (!contact) return null;
               return (
-                <ChatRow
-                  key={chat.id}
-                  chat={chat}
-                  contact={contact}
-                  selected={selectedChatId === chat.id}
-                  onClick={() => onSelectChat(chat.id)}
-                  showHiddenControls={hiddenChatsEnabled}
-                  onToggleHidden={toggleChatHidden}
-                  searchHighlight={query || undefined}
-                />
+                <div key={chat.id} className="animate-list-item-in" style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}>
+                  <ChatRow
+                    chat={chat}
+                    contact={contact}
+                    selected={selectedChatId === chat.id}
+                    onClick={() => onSelectChat(chat.id)}
+                    showHiddenControls={hiddenChatsEnabled}
+                    onToggleHidden={toggleChatHidden}
+                    searchHighlight={query || undefined}
+                  />
+                </div>
               );
             })
           ) : (
-            filteredGroups.map((group) => (
-              <GroupRow
-                key={group.id}
-                group={group}
-                selected={activeGroupId === group.id}
-                onClick={() => handleSelectGroup(group.id)}
-              />
+            filteredGroups.map((group, i) => (
+              <div key={group.id} className="animate-list-item-in" style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}>
+                <GroupRow
+                  group={group}
+                  selected={activeGroupId === group.id}
+                  onClick={() => handleSelectGroup(group.id)}
+                />
+              </div>
             ))
           )}
         </div>

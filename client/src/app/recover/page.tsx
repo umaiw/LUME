@@ -142,7 +142,7 @@ export default function RecoverPage() {
           </div>
         </div>
 
-        <div className="auth-card lume-panel p-5 sm:p-8">
+        <div className="auth-card lume-panel p-5 sm:p-8 animate-fade-in-scale">
           {step === 'phrase' && (
             <>
               <div className="mb-6">

@@ -226,7 +226,7 @@ export default function UnlockPage() {
           </div>
         </div>
 
-        <div className="auth-card lume-panel p-6 sm:p-8">
+        <div className="auth-card lume-panel p-6 sm:p-8 animate-fade-in-scale">
           <div className="mb-6">
             <label htmlFor="unlock-pin" className="block apple-label mb-2 text-center">PIN</label>
             <input

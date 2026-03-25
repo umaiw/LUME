@@ -215,7 +215,7 @@ function MessageBubble({
   }, [remaining, message.id, message.selfDestructAt, onDelete]);
 
   return (
-    <div className={`group flex ${isMine ? "justify-end" : "justify-start"}`}>
+    <div className={`group flex animate-message-in ${isMine ? "justify-end" : "justify-start"}`}>
       {/* Action buttons — left of own messages */}
       {isMine && (
         <div className="self-center mr-2 flex items-center gap-1 opacity-0 group-hover:opacity-60 transition-opacity">
@@ -305,7 +305,7 @@ function MessageBubble({
 
         {/* Inline delete confirmation */}
         {showActions && (
-          <div className="absolute top-0 right-0 -mt-8 flex gap-1 z-10">
+          <div className="absolute top-0 right-0 -mt-8 flex gap-1 z-10 animate-scale-in">
             <button
               type="button"
               onClick={() => {

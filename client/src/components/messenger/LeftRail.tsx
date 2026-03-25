@@ -106,7 +106,7 @@ export default function LeftRail({ onPanic, onOpenBackup }: { onPanic?: () => vo
         : 'bg-[var(--surface-alt)] border border-[var(--border)]';
 
   return (
-    <div className="lume-rail h-full min-h-0 rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] overflow-hidden flex flex-col">
+    <div className="lume-rail h-full min-h-0 rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] overflow-hidden flex flex-col animate-fade-in">
       <div className="px-6 pt-6 pb-5 border-b border-[var(--border)]/70">
         <div className="flex items-center justify-between">
           <button

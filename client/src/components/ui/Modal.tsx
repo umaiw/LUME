@@ -50,7 +50,7 @@ export function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/70 animate-overlay-in" onClick={onClose} />
 
       <div
         role="dialog"
@@ -60,7 +60,7 @@ export function Modal({
           relative w-full ${sizes[size]}
           bg-[var(--surface)] rounded-t-2xl sm:rounded-2xl
           border border-[var(--border)] shadow-[var(--shadow-lg)]
-          transition-all duration-200
+          animate-slide-up
           max-h-[92dvh] flex flex-col
         `}
       >

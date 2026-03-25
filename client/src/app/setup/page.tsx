@@ -218,7 +218,7 @@ export default function SetupPage() {
           </div>
         </div>
 
-        <div className="auth-card lume-panel p-5 sm:p-8">
+        <div className="auth-card lume-panel p-5 sm:p-8 animate-fade-in-scale">
           {step !== "generate" && step !== "complete" && (
             <div className="mb-8">
               <div className="h-1.5 bg-[var(--surface-alt)] rounded-full overflow-hidden">

@@ -105,7 +105,7 @@ export default function ChatHeader({
       </div>
 
       {showOptions ? (
-        <div className="mt-4 flex items-center gap-2 flex-wrap">
+        <div className="mt-4 flex items-center gap-2 flex-wrap animate-fade-in-up">
           <span className="text-[11px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
             Auto-delete
           </span>
