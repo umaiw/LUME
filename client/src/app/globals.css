@@ -98,17 +98,52 @@ body {
   position: relative;
   overflow-x: hidden;
   color: var(--foreground);
-  background:
-    radial-gradient(1200px 800px at 12% -10%, rgba(11, 11, 11, 0.06), transparent 60%),
-    radial-gradient(1000px 700px at 110% 20%, rgba(11, 11, 11, 0.04), transparent 55%),
-    var(--background);
+  background: var(--background);
 }
 
-[data-theme="dark"] body {
-  background:
-    radial-gradient(1100px 760px at 18% -10%, rgba(247, 247, 247, 0.07), transparent 60%),
-    radial-gradient(900px 650px at 110% 30%, rgba(247, 247, 247, 0.05), transparent 55%),
-    var(--background);
+/* Animated gradient background — shifts between blue, white, black */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.18;
+  background: linear-gradient(
+    135deg,
+    #1a1a2e 0%,
+    #16213e 15%,
+    #0f3460 30%,
+    #e2e8f0 50%,
+    #f8fafc 65%,
+    #1a1a2e 80%,
+    #0b0b0b 100%
+  );
+  background-size: 400% 400%;
+  animation: gradientShift 20s ease infinite;
+}
+
+[data-theme="dark"] body::before {
+  opacity: 0.12;
+  background: linear-gradient(
+    135deg,
+    #0a0a1a 0%,
+    #0f1b3d 15%,
+    #1e3a5f 30%,
+    #c8d6e5 50%,
+    #e8edf2 60%,
+    #0f1b3d 75%,
+    #030303 100%
+  );
+  background-size: 400% 400%;
+  animation: gradientShift 20s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  25% { background-position: 50% 100%; }
+  50% { background-position: 100% 50%; }
+  75% { background-position: 50% 0%; }
+  100% { background-position: 0% 50%; }
 }
 
 .auth-shell {
@@ -518,12 +553,12 @@ body {
 }
 
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeInScale {
-  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  from { opacity: 0; transform: scale(0.98) translateY(3px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
@@ -533,12 +568,12 @@ body {
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.9); }
+  from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
 }
 
@@ -548,50 +583,50 @@ body {
 }
 
 @keyframes messageIn {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(2px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes listItemIn {
-  from { opacity: 0; transform: translateX(-8px); }
+  from { opacity: 0; transform: translateX(-3px); }
   to { opacity: 1; transform: translateX(0); }
 }
 
-/* Utility classes */
+/* Utility classes — subtle, fast transitions */
 .animate-fade-in {
-  animation: fadeIn 0.3s ease-out both;
+  animation: fadeIn 0.15s ease-out both;
 }
 
 .animate-fade-in-up {
-  animation: fadeInUp 0.35s ease-out both;
+  animation: fadeInUp 0.18s ease-out both;
 }
 
 .animate-fade-in-scale {
-  animation: fadeInScale 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: fadeInScale 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .animate-slide-down {
-  animation: slideDown 0.3s ease-out both;
+  animation: slideDown 0.2s ease-out both;
 }
 
 .animate-slide-up {
-  animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .animate-scale-in {
-  animation: scaleIn 0.2s ease-out both;
+  animation: scaleIn 0.12s ease-out both;
 }
 
 .animate-overlay-in {
-  animation: overlayIn 0.25s ease-out both;
+  animation: overlayIn 0.15s ease-out both;
 }
 
 .animate-message-in {
-  animation: messageIn 0.25s ease-out both;
+  animation: messageIn 0.12s ease-out both;
 }
 
 .animate-list-item-in {
-  animation: listItemIn 0.25s ease-out both;
+  animation: listItemIn 0.12s ease-out both;
 }
 
 /* Respect user motion preferences */

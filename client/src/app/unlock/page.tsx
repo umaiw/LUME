@@ -292,7 +292,7 @@ export default function UnlockPage() {
       </div>
 
       {showReRegisterWarning && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xl p-4">
           <div className="lume-panel w-full max-w-md rounded-[var(--radius-lg)] border border-[var(--border)] p-6 sm:p-8 shadow-lg">
             <h2 className="text-[14px] font-semibold uppercase tracking-[0.14em] text-[var(--text-primary)] mb-4">
               Account Not Found on Server

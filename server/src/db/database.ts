@@ -704,6 +704,19 @@ export const database = {
   close(): void {
     db.close()
   },
+
+  getStartupDiagnostics(): { path: string; userCount: number; sizeBytes: number } {
+    const userCount = (db.prepare('SELECT COUNT(*) AS cnt FROM users').get() as { cnt: number }).cnt
+    let sizeBytes = 0
+    if (RESOLVED_DB_PATH !== ':memory:') {
+      try {
+        sizeBytes = fs.statSync(RESOLVED_DB_PATH).size
+      } catch {
+        // File may not exist yet
+      }
+    }
+    return { path: RESOLVED_DB_PATH, userCount, sizeBytes }
+  },
 }
 
 export default database
