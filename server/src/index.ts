@@ -214,8 +214,13 @@ const wss = new WebSocketServer({
 initWebSocket(wss)
 
 server.listen(PORT, HOST, () => {
+  // Startup diagnostics — helps debug "account not found" issues
+  const dbStats = database.getStartupDiagnostics()
   console.log(
     `LUME API listening on http://${HOST}:${PORT} (ws path /ws) | Allowed origins: ${CLIENT_ORIGINS.join(', ') || 'none'}`
+  )
+  console.log(
+    `DB: ${dbStats.path} | Users: ${dbStats.userCount} | Size: ${(dbStats.sizeBytes / 1024 / 1024).toFixed(1)}MB`
   )
 })
 
