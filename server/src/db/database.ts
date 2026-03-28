@@ -21,6 +21,9 @@ const db = new Database(RESOLVED_DB_PATH)
 db.pragma('journal_mode = WAL')
 db.pragma('foreign_keys = ON')
 db.pragma('busy_timeout = 3000')
+db.pragma('synchronous = NORMAL')
+db.pragma('cache_size = -64000')  // 64MB cache
+db.pragma('temp_store = MEMORY')
 
 // ==================== Tables ====================
 
@@ -66,6 +69,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_prekeys_user ON one_time_prekeys(user_id);
   CREATE INDEX IF NOT EXISTS idx_messages_recipient ON pending_messages(recipient_id);
   CREATE INDEX IF NOT EXISTS idx_messages_sender ON pending_messages(sender_id);
+  CREATE INDEX IF NOT EXISTS idx_messages_recipient_time ON pending_messages(recipient_id, created_at ASC);
   CREATE INDEX IF NOT EXISTS idx_request_signatures_created_at ON request_signatures(created_at);
 
   CREATE TABLE IF NOT EXISTS files (
@@ -491,18 +495,13 @@ export const database = {
    * Returns the number of actually deleted messages.
    */
   batchDeleteMessages(messageIds: string[], recipientId: string): number {
-    const batchDel = db.transaction((ids: string[]) => {
-      let deleted = 0
-      for (const id of ids) {
-        const msg = getMessageById.get(id) as PendingMessage | undefined
-        if (msg && msg.recipient_id === recipientId) {
-          deleteMessage.run(id)
-          deleted++
-        }
-      }
-      return deleted
-    })
-    return batchDel(messageIds)
+    if (messageIds.length === 0) return 0
+    const placeholders = messageIds.map(() => '?').join(',')
+    const stmt = db.prepare(`
+      DELETE FROM pending_messages
+      WHERE id IN (${placeholders}) AND recipient_id = ?
+    `)
+    return stmt.run(...messageIds, recipientId).changes
   },
 
   deleteAllMessages(recipientId: string): void {
@@ -520,13 +519,12 @@ export const database = {
   },
 
   rememberRequestSignature(requestHash: string, identityKey: string): boolean {
-    const nowSec = Math.floor(Date.now() / 1000)
-    const ttlSec = 180
-    const result = db.transaction(() => {
-      cleanupOldRequestSignatures.run(nowSec - ttlSec)
-      return insertRequestSignature.run(requestHash, identityKey)
-    })()
+    const result = insertRequestSignature.run(requestHash, identityKey)
     return result.changes > 0
+  },
+
+  cleanupRequestSignatures(cutoff: number): number {
+    return cleanupOldRequestSignatures.run(cutoff).changes
   },
 
   // ── Blocking ──
@@ -605,6 +603,10 @@ export const database = {
 
   deleteGroup(groupId: string): void {
     deleteGroup.run(groupId)
+  },
+
+  ping(): void {
+    db.prepare('SELECT 1').get()
   },
 
   close(): void {

@@ -148,16 +148,18 @@ app.use('/api/push', pushRoutes)
 app.use('/api/profile', profileRoutes)
 
 app.get('/api/health', (_req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-  })
+  try {
+    database.ping()
+    res.json({ status: 'ok', timestamp: new Date().toISOString() })
+  } catch {
+    res.status(503).json({ status: 'degraded', timestamp: new Date().toISOString() })
+  }
 })
 
-app.get('/api/metrics', (_req, res) => {
-  // Block in production to prevent information disclosure
-  if (process.env.NODE_ENV === 'production') {
-    res.status(404).json({ error: 'Not found' })
+app.get('/api/metrics', (req, res) => {
+  const token = req.headers['x-metrics-token']
+  if (IS_PROD && token !== process.env.METRICS_SECRET) {
+    res.status(403).json({ error: 'Forbidden' })
     return
   }
 
@@ -215,12 +217,24 @@ const staleCleanupTimer = setInterval(() => {
   if (purged > 0) {
     console.log(`Purged ${purged} stale pending message(s)`)
   }
+}, STALE_MSG_CLEANUP_INTERVAL)
+staleCleanupTimer.unref()
+
+// Purge expired files every minute
+const fileCleanupTimer = setInterval(() => {
   const purgedFiles = database.purgeExpiredFiles(Math.floor(Date.now() / 1000))
   if (purgedFiles > 0) {
     console.log(`Purged ${purgedFiles} expired file(s)`)
   }
-}, STALE_MSG_CLEANUP_INTERVAL)
-staleCleanupTimer.unref()
+}, 60_000)
+fileCleanupTimer.unref()
+
+// Cleanup old request signatures every 5 minutes
+const sigCleanupTimer = setInterval(() => {
+  const cutoff = Math.floor(Date.now() / 1000) - 180
+  database.cleanupRequestSignatures(cutoff)
+}, 5 * 60 * 1000)
+sigCleanupTimer.unref()
 
 // Graceful shutdown
 const SHUTDOWN_TIMEOUT_MS = 5000

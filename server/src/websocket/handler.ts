@@ -18,6 +18,7 @@ let rateLimitCleanupInterval: NodeJS.Timeout | null = null
 
 interface AuthenticatedWebSocket extends WebSocket {
   userId: string
+  username: string
   isAlive: boolean // Heartbeat flag
 }
 
@@ -166,6 +167,7 @@ export function initWebSocket(wss: WebSocketServer): void {
         return abort(4002, 'User not found')
       }
 
+      ws.username = user.username
       addConnection(userId, ws)
       database.touchLastSeen(userId)
     } catch (error) {
@@ -214,7 +216,7 @@ export function initWebSocket(wss: WebSocketServer): void {
             if (typeof typed.isTyping !== 'boolean') break
             // Prevent sending typing to self
             if (typed.recipientId === ws.userId) break
-            handleTyping(ws.userId, typed)
+            handleTyping(ws.userId, ws.username, typed)
             break
           }
 
@@ -269,10 +271,7 @@ export function initWebSocket(wss: WebSocketServer): void {
   })
 }
 
-function handleTyping(senderId: string, message: TypingMessage): void {
-  const sender = database.getUserById(senderId)
-  if (!sender) return
-
+function handleTyping(senderId: string, senderUsername: string, message: TypingMessage): void {
   const now = Date.now()
   const key = `${senderId}|${message.recipientId}`
   const prev = typingRateLimits.get(key)
@@ -289,7 +288,7 @@ function handleTyping(senderId: string, message: TypingMessage): void {
   broadcastToUser(message.recipientId, {
     type: 'typing',
     senderId,
-    senderUsername: sender.username,
+    senderUsername,
     isTyping: message.isTyping,
   })
 }
