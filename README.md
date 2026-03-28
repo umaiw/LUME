@@ -159,4 +159,4 @@ To report a security vulnerability, open a GitHub issue or contact the maintaine
 
 ## License
 
-[MIT](LICENSE)
+[AGPL-3.0](LICENSE)
