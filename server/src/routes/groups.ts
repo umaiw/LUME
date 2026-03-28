@@ -54,12 +54,13 @@ router.post(
       const groupId = uuidv4()
       database.createGroup(groupId, name.trim(), signer.id)
 
-      // Add other members
-      for (const memberId of memberIds) {
-        if (memberId === signer.id) continue
-        const user = database.getUserById(memberId)
-        if (user) {
-          database.addGroupMember(groupId, memberId)
+      // Add other members — batch-validate all IDs in one query
+      const otherIds = memberIds.filter(id => id !== signer.id)
+      const validUsers = database.getUsersByIds(otherIds)
+      const validIds = new Set(validUsers.map(u => u.id))
+      for (const id of otherIds) {
+        if (validIds.has(id)) {
+          database.addGroupMember(groupId, id)
         }
       }
 

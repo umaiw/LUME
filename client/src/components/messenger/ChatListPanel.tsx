@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { memo, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Chat } from '@/stores';
 import { useAuthStore, useBlockedStore, useChatsStore, useGroupsStore, useUIStore } from '@/stores';
@@ -18,7 +18,7 @@ function formatTime(timestamp?: number) {
   return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
 }
 
-function ChatRow({
+const ChatRow = memo(function ChatRow({
   chat,
   contact,
   selected,
@@ -121,9 +121,21 @@ function ChatRow({
       </div>
     </button>
   );
-}
+}, (prev, next) =>
+  prev.chat.id === next.chat.id &&
+  prev.chat.lastMessage?.id === next.chat.lastMessage?.id &&
+  prev.chat.lastMessage?.status === next.chat.lastMessage?.status &&
+  prev.chat.unreadCount === next.chat.unreadCount &&
+  prev.chat.isHidden === next.chat.isHidden &&
+  prev.contact.id === next.contact.id &&
+  prev.contact.username === next.contact.username &&
+  prev.selected === next.selected &&
+  prev.showHiddenControls === next.showHiddenControls &&
+  prev.searchHighlight === next.searchHighlight &&
+  prev.avatarUrl === next.avatarUrl
+);
 
-function GroupRow({
+const GroupRow = memo(function GroupRow({
   group,
   selected,
   onClick,
@@ -175,7 +187,12 @@ function GroupRow({
       </div>
     </button>
   );
-}
+}, (prev, next) =>
+  prev.group.id === next.group.id &&
+  prev.group.name === next.group.name &&
+  prev.group.members.length === next.group.members.length &&
+  prev.selected === next.selected
+);
 
 export default function ChatListPanel({
   chats,
@@ -316,13 +333,13 @@ export default function ChatListPanel({
     setHiddenPinError('');
   };
 
-  const toggleChatHidden = (chatId: string) => {
+  const toggleChatHidden = useCallback((chatId: string) => {
     const target = chats.find((c) => c.id === chatId);
     if (!target) return;
 
     if (!hiddenChatsEnabled) return;
     setChatHidden(chatId, !target.isHidden);
-  };
+  }, [chats, hiddenChatsEnabled, setChatHidden]);
 
   const modeScopedChats = chats
     .filter((chat) => {

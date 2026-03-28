@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import express from 'express'
+import compression from 'compression'
 import cors from 'cors'
 import helmet from 'helmet'
 import crypto from 'crypto'
@@ -100,6 +101,8 @@ app.use(
     next(err)
   }
 )
+
+app.use(compression())
 
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff')
