@@ -45,7 +45,7 @@
     "@typescript-eslint/eslint-plugin": "^8.57.1",
     "@typescript-eslint/parser": "^8.57.1",
     "autocannon": "^8.0.0",
-    "eslint": "^9",
+    "eslint": "^10",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-no-secrets": "^2.3.3",
     "eslint-plugin-security": "^2.1.1",
