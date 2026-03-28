@@ -15,16 +15,16 @@ const UPLOAD_DIR = path.resolve(
   process.env.UPLOAD_DIR || path.join(__dirname, '../../data/uploads')
 )
 
+/** Strict UUID pattern — only hex and hyphens, no path separators possible. */
+const SAFE_FILENAME_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i
+
 /**
  * Safely resolve a file path within UPLOAD_DIR.
- * Returns null if the resolved path escapes the upload directory (path traversal).
+ * Returns null if the filename fails the strict UUID regex (blocks path traversal).
  */
 function safeFilePath(fileId: string): string | null {
-  const resolved = path.resolve(UPLOAD_DIR, fileId)
-  if (!resolved.startsWith(UPLOAD_DIR + path.sep) && resolved !== UPLOAD_DIR) {
-    return null
-  }
-  return resolved
+  if (!SAFE_FILENAME_RE.test(fileId)) return null
+  return path.join(UPLOAD_DIR, fileId)
 }
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 const MAX_FILES_PER_USER = 500
@@ -148,7 +148,8 @@ router.get(
         return
       }
 
-      const filePath = safeFilePath(fileId)
+      // Use file.id from DB (trusted) — not raw req.params (untrusted)
+      const filePath = safeFilePath(file.id)
       if (!filePath) {
         res.status(400).json({ error: 'Invalid file ID' })
         return
@@ -213,7 +214,8 @@ router.get(
         return
       }
 
-      const filePath = safeFilePath(fileId)
+      // Use file.id from DB (trusted) — not raw req.params (untrusted)
+      const filePath = safeFilePath(file.id)
       if (!filePath) {
         res.status(400).json({ error: 'Invalid file ID' })
         return
