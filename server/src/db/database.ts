@@ -323,6 +323,10 @@ const countUserFiles = db.prepare(`
   SELECT COUNT(*) as count FROM files WHERE uploader_id = ?
 `)
 
+const countAllFiles = db.prepare(`
+  SELECT COUNT(*) as count FROM files
+`)
+
 const insertGroup = db.prepare(`
   INSERT INTO groups (id, name, creator_id) VALUES (?, ?, ?)
 `)
@@ -388,13 +392,6 @@ export interface User {
   created_at: number
   last_seen: number | null
 }
-
-// Cache for getUsersByIds prepared statements keyed by number of IDs.
-const USERS_BY_IDS_CACHE_MAX = 50
-const getUsersByIdsCache = new Map<number, ReturnType<typeof db.prepare>>()
-
-// Cache for getGroupMembersForGroups prepared statements keyed by number of IDs.
-const groupMembersForGroupsCache = new Map<number, ReturnType<typeof db.prepare>>()
 
 export interface PendingMessage {
   id: string
@@ -523,19 +520,16 @@ export const database = {
 
   getUsersByIds(userIds: string[]): User[] {
     if (userIds.length === 0) return []
-    // Cache prepared statements by arity to avoid re-preparing on every call.
-    const key = userIds.length
-    if (!getUsersByIdsCache.has(key)) {
-      if (getUsersByIdsCache.size >= USERS_BY_IDS_CACHE_MAX) {
-        // Evict oldest entry (first inserted key) to bound memory
-        const oldest = getUsersByIdsCache.keys().next().value
-        if (oldest !== undefined) getUsersByIdsCache.delete(oldest)
-      }
-      const placeholders = userIds.map(() => '?').join(', ')
-      getUsersByIdsCache.set(key, db.prepare(`SELECT * FROM users WHERE id IN (${placeholders})`))
+    const results: User[] = []
+    for (let i = 0; i < userIds.length; i += 500) {
+      const chunk = userIds.slice(i, i + 500)
+      const placeholders = chunk.map(() => '?').join(', ')
+      const rows = db
+        .prepare(`SELECT * FROM users WHERE id IN (${placeholders})`)
+        .all(...chunk) as User[]
+      results.push(...rows)
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (getUsersByIdsCache.get(key)!.all as (...p: any[]) => unknown[])(...userIds) as User[]
+    return results
   },
 
   getMessageById(messageId: string): PendingMessage | undefined {
@@ -553,12 +547,17 @@ export const database = {
    */
   batchDeleteMessages(messageIds: string[], recipientId: string): number {
     if (messageIds.length === 0) return 0
-    const placeholders = messageIds.map(() => '?').join(',')
-    const stmt = db.prepare(`
-      DELETE FROM pending_messages
-      WHERE id IN (${placeholders}) AND recipient_id = ?
-    `)
-    return stmt.run(...messageIds, recipientId).changes
+    let totalDeleted = 0
+    for (let i = 0; i < messageIds.length; i += 500) {
+      const chunk = messageIds.slice(i, i + 500)
+      const placeholders = chunk.map(() => '?').join(',')
+      const stmt = db.prepare(`
+        DELETE FROM pending_messages
+        WHERE id IN (${placeholders}) AND recipient_id = ?
+      `)
+      totalDeleted += stmt.run(...chunk, recipientId).changes
+    }
+    return totalDeleted
   },
 
   deleteAllMessages(recipientId: string): void {
@@ -634,6 +633,11 @@ export const database = {
     return result.count
   },
 
+  getAllFilesCount(): number {
+    const result = countAllFiles.get() as { count: number }
+    return result.count
+  },
+
   purgeExpiredFiles(nowSec: number): number {
     const result = deleteExpiredFiles.run(nowSec)
     return result.changes
@@ -666,30 +670,21 @@ export const database = {
 
   getGroupMembersForGroups(groupIds: string[]): Record<string, GroupMember[]> {
     if (groupIds.length === 0) return {}
-    const key = groupIds.length
-    if (!groupMembersForGroupsCache.has(key)) {
-      if (groupMembersForGroupsCache.size >= USERS_BY_IDS_CACHE_MAX) {
-        const oldest = groupMembersForGroupsCache.keys().next().value
-        if (oldest !== undefined) groupMembersForGroupsCache.delete(oldest)
-      }
-      const placeholders = groupIds.map(() => '?').join(', ')
-      groupMembersForGroupsCache.set(
-        key,
-        db.prepare(
-          `SELECT gm.*, u.username FROM group_members gm JOIN users u ON u.id = gm.user_id WHERE gm.group_id IN (${placeholders})`
-        )
-      )
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rows = (groupMembersForGroupsCache.get(key)!.all as (...p: any[]) => unknown[])(
-      ...groupIds
-    ) as GroupMember[]
     const result: Record<string, GroupMember[]> = {}
     for (const id of groupIds) {
       result[id] = []
     }
-    for (const row of rows) {
-      result[row.group_id]!.push(row)
+    for (let i = 0; i < groupIds.length; i += 500) {
+      const chunk = groupIds.slice(i, i + 500)
+      const placeholders = chunk.map(() => '?').join(', ')
+      const rows = db
+        .prepare(
+          `SELECT gm.*, u.username FROM group_members gm JOIN users u ON u.id = gm.user_id WHERE gm.group_id IN (${placeholders})`
+        )
+        .all(...chunk) as GroupMember[]
+      for (const row of rows) {
+        result[row.group_id]!.push(row)
+      }
     }
     return result
   },

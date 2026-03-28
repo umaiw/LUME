@@ -2,6 +2,7 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
+import crypto from 'crypto'
 import { createServer } from 'http'
 import { WebSocketServer } from 'ws'
 
@@ -158,9 +159,16 @@ app.get('/api/health', (_req, res) => {
 
 app.get('/api/metrics', (req, res) => {
   const token = req.headers['x-metrics-token']
-  if (IS_PROD && token !== process.env.METRICS_SECRET) {
-    res.status(403).json({ error: 'Forbidden' })
-    return
+  if (IS_PROD) {
+    const providedToken =
+      typeof token === 'string' ? token : Array.isArray(token) ? token[0] || '' : ''
+    const expectedToken = String(process.env.METRICS_SECRET || '')
+    const providedHash = crypto.createHash('sha256').update(providedToken).digest()
+    const expectedHash = crypto.createHash('sha256').update(expectedToken).digest()
+    if (!crypto.timingSafeEqual(providedHash, expectedHash)) {
+      res.status(403).json({ error: 'Forbidden' })
+      return
+    }
   }
 
   const stats = getConnectionStats()

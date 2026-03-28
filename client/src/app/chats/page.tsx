@@ -52,9 +52,13 @@ export default function ChatsPage() {
   const router = useRouter();
 
   const { hydrated } = useMessengerSync();
-  const { isAuthenticated, identityKeys, masterKey } = useAuthStore();
-  const { contacts } = useContactsStore();
-  const { chats, activeChatId, setActiveChat } = useChatsStore();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const identityKeys = useAuthStore((s) => s.identityKeys);
+  const masterKey = useAuthStore((s) => s.masterKey);
+  const contacts = useContactsStore((s) => s.contacts);
+  const chats = useChatsStore((s) => s.chats);
+  const activeChatId = useChatsStore((s) => s.activeChatId);
+  const setActiveChat = useChatsStore((s) => s.setActiveChat);
   const { groups, activeGroupId, setGroups, setActiveGroup } = useGroupsStore();
   const avatarMap = useContactAvatars(contacts);
 

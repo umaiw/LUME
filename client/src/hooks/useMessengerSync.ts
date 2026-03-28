@@ -498,8 +498,11 @@ async function appendIncomingMessage(params: {
 
 export function useMessengerSync() {
   const router = useRouter();
-  const { isAuthenticated, userId, masterKey, identityKeys, clearAuth } =
-    useAuthStore();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const userId = useAuthStore((s) => s.userId);
+  const masterKey = useAuthStore((s) => s.masterKey);
+  const identityKeys = useAuthStore((s) => s.identityKeys);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
   const setContacts = useContactsStore((s) => s.setContacts);
   const setChats = useChatsStore((s) => s.setChats);
   const setSessions = useSessionsStore((s) => s.setSessions);

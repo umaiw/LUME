@@ -12,9 +12,12 @@ import { saveContacts, type Contact } from "@/crypto/storage";
 
 export function useContactActions() {
   const router = useRouter();
-  const { username, masterKey, identityKeys } = useAuthStore();
-  const { addContact } = useContactsStore();
-  const { addChat, setActiveChat } = useChatsStore();
+  const username = useAuthStore((s) => s.username);
+  const masterKey = useAuthStore((s) => s.masterKey);
+  const identityKeys = useAuthStore((s) => s.identityKeys);
+  const addContact = useContactsStore((s) => s.addContact);
+  const addChat = useChatsStore((s) => s.addChat);
+  const setActiveChat = useChatsStore((s) => s.setActiveChat);
 
   const [showAddContact, setShowAddContact] = useState(false);
   const [newContactUsername, setNewContactUsername] = useState("");
@@ -94,12 +97,20 @@ export function useContactActions() {
 
       openChatForContact(data.id);
     } catch (e) {
-      if (process.env.NODE_ENV !== 'production') console.error("Add contact error:", e);
+      if (process.env.NODE_ENV !== "production")
+        console.error("Add contact error:", e);
       setAddContactError("Error adding contact");
     } finally {
       setAddContactLoading(false);
     }
-  }, [newContactUsername, username, masterKey, identityKeys, addContact, openChatForContact]);
+  }, [
+    newContactUsername,
+    username,
+    masterKey,
+    identityKeys,
+    addContact,
+    openChatForContact,
+  ]);
 
   const resetAddContact = useCallback(() => {
     setShowAddContact(false);

@@ -84,28 +84,28 @@ export default function ChatPage({ params }: ChatPageProps) {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingStateRef = useRef(false);
 
-  const { userId, identityKeys, masterKey } = useAuthStore();
-  const { contacts, removeContact } = useContactsStore();
+  const userId = useAuthStore((s) => s.userId);
+  const identityKeys = useAuthStore((s) => s.identityKeys);
+  const masterKey = useAuthStore((s) => s.masterKey);
+  const contacts = useContactsStore((s) => s.contacts);
+  const removeContact = useContactsStore((s) => s.removeContact);
   const avatarMap = useContactAvatars(contacts);
-  const { upsertSession, deleteSession } = useSessionsStore();
-  const {
-    chats,
-    addMessage,
-    updateMessage,
-    deleteMessage,
-    deleteChat,
-    setChatHidden,
-    markAsRead,
-    setSelfDestructTimer,
-    activeChatId,
-    setActiveChat,
-  } = useChatsStore();
-  const {
-    setCryptoBanner,
-    clearCryptoBanner,
-    showHiddenChats,
-    setShowHiddenChats,
-  } = useUIStore();
+  const upsertSession = useSessionsStore((s) => s.upsertSession);
+  const deleteSession = useSessionsStore((s) => s.deleteSession);
+  const chats = useChatsStore((s) => s.chats);
+  const addMessage = useChatsStore((s) => s.addMessage);
+  const updateMessage = useChatsStore((s) => s.updateMessage);
+  const deleteMessage = useChatsStore((s) => s.deleteMessage);
+  const deleteChat = useChatsStore((s) => s.deleteChat);
+  const setChatHidden = useChatsStore((s) => s.setChatHidden);
+  const markAsRead = useChatsStore((s) => s.markAsRead);
+  const setSelfDestructTimer = useChatsStore((s) => s.setSelfDestructTimer);
+  const activeChatId = useChatsStore((s) => s.activeChatId);
+  const setActiveChat = useChatsStore((s) => s.setActiveChat);
+  const setCryptoBanner = useUIStore((s) => s.setCryptoBanner);
+  const clearCryptoBanner = useUIStore((s) => s.clearCryptoBanner);
+  const showHiddenChats = useUIStore((s) => s.showHiddenChats);
+  const setShowHiddenChats = useUIStore((s) => s.setShowHiddenChats);
 
   const {
     showAddContact,

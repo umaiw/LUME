@@ -1,28 +1,38 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { validateMnemonic, recoverIdentityFromMnemonic } from '@/crypto/mnemonic';
-import { saveIdentityKeys, loadSettings, saveSettings, savePreKeyMaterial, deriveMasterKeyFromPin, savePinHash } from '@/crypto/storage';
-import { useAuthStore } from '@/stores';
-import { authApi } from '@/lib/api';
-import { generatePreKeyBundle } from '@/crypto/keys';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  validateMnemonic,
+  recoverIdentityFromMnemonic,
+} from "@/crypto/mnemonic";
+import {
+  saveIdentityKeys,
+  loadSettings,
+  saveSettings,
+  savePreKeyMaterial,
+  deriveMasterKeyFromPin,
+  savePinHash,
+} from "@/crypto/storage";
+import { useAuthStore } from "@/stores";
+import { authApi } from "@/lib/api";
+import { generatePreKeyBundle } from "@/crypto/keys";
 
 export default function RecoverPage() {
   const router = useRouter();
-  const { setAuth } = useAuthStore();
+  const setAuth = useAuthStore((s) => s.setAuth);
 
-  const [mnemonic, setMnemonic] = useState('');
-  const [username, setUsername] = useState('');
-  const [pin, setPin] = useState('');
-  const [pinConfirm, setPinConfirm] = useState('');
-  const [step, setStep] = useState<'phrase' | 'pin'>('phrase');
-  const [error, setError] = useState('');
+  const [mnemonic, setMnemonic] = useState("");
+  const [username, setUsername] = useState("");
+  const [pin, setPin] = useState("");
+  const [pinConfirm, setPinConfirm] = useState("");
+  const [step, setStep] = useState<"phrase" | "pin">("phrase");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleValidatePhrase = async () => {
     if (!username || !/^[a-zA-Z0-9_]{3,32}$/.test(username)) {
-      setError('Enter a valid username');
+      setError("Enter a valid username");
       return;
     }
 
@@ -30,45 +40,48 @@ export default function RecoverPage() {
     const words = trimmed.split(/\s+/);
 
     if (words.length !== 12 && words.length !== 24) {
-      setError('Phrase must contain 12 or 24 words');
+      setError("Phrase must contain 12 or 24 words");
       return;
     }
 
     if (!(await validateMnemonic(trimmed))) {
-      setError('Invalid recovery phrase');
+      setError("Invalid recovery phrase");
       return;
     }
 
-    setError('');
-    setStep('pin');
+    setError("");
+    setStep("pin");
   };
 
   const handleRecover = async () => {
     if (pin.length < 4) {
-      setError('PIN must be at least 4 chars');
+      setError("PIN must be at least 4 chars");
       return;
     }
 
     if (pin !== pinConfirm) {
-      setError('PINs do not match');
+      setError("PINs do not match");
       return;
     }
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
       const trimmed = mnemonic.trim().toLowerCase();
       const identity = await recoverIdentityFromMnemonic(trimmed);
-      const { data, error: getUserError } = await authApi.getUser(username, identity);
+      const { data, error: getUserError } = await authApi.getUser(
+        username,
+        identity,
+      );
 
       if (getUserError || !data) {
-        setError('Account not found on server');
+        setError("Account not found on server");
         return;
       }
 
       if (data.identityKey !== identity.signing.publicKey) {
-        setError('Recovery phrase does not match this username');
+        setError("Recovery phrase does not match this username");
         return;
       }
 
@@ -85,23 +98,31 @@ export default function RecoverPage() {
         userId: data.id,
       });
 
-      const preKeyBundle = generatePreKeyBundle(identity.exchange, identity.signing, 20);
+      const preKeyBundle = generatePreKeyBundle(
+        identity.exchange,
+        identity.signing,
+        20,
+      );
       await savePreKeyMaterial(
         {
           signedPreKey: preKeyBundle.signedPreKey,
           oneTimePreKeys: preKeyBundle.oneTimePreKeys,
           updatedAt: Date.now(),
         },
-        masterKey
+        masterKey,
       );
       const { error: rotateError } = await authApi.updateSignedPrekey(
         data.id,
         preKeyBundle.signedPreKey.publicKey,
         preKeyBundle.signature,
-        identity
+        identity,
       );
       if (rotateError) {
-        if (process.env.NODE_ENV !== 'production') console.warn('Signed prekey rotation skipped during recovery:', rotateError);
+        if (process.env.NODE_ENV !== "production")
+          console.warn(
+            "Signed prekey rotation skipped during recovery:",
+            rotateError,
+          );
       }
 
       try {
@@ -111,20 +132,22 @@ export default function RecoverPage() {
             id: `recovery-prekey-${Date.now()}-${i}`,
             publicKey: key.publicKey,
           })),
-          identity
+          identity,
         );
       } catch (uploadError) {
-        if (process.env.NODE_ENV !== 'production') console.warn('Prekey refill failed after recovery:', uploadError);
+        if (process.env.NODE_ENV !== "production")
+          console.warn("Prekey refill failed after recovery:", uploadError);
       }
 
-      setMnemonic('');
-      setPin('');
-      setPinConfirm('');
+      setMnemonic("");
+      setPin("");
+      setPinConfirm("");
       setAuth(data.id, data.username, identity, masterKey);
-      router.push('/chats');
+      router.push("/chats");
     } catch (recoverError) {
-      if (process.env.NODE_ENV !== 'production') console.error('Recovery error:', recoverError);
-      setError('Recovery error');
+      if (process.env.NODE_ENV !== "production")
+        console.error("Recovery error:", recoverError);
+      setError("Recovery error");
     } finally {
       setLoading(false);
     }
@@ -134,8 +157,12 @@ export default function RecoverPage() {
     <main className="auth-shell">
       <div className="w-full max-w-md px-0">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-semibold tracking-[0.28em] uppercase text-[var(--text-primary)]">L U M E</h1>
-          <p className="auth-subtle mt-2">Restore access using recovery phrase.</p>
+          <h1 className="text-2xl font-semibold tracking-[0.28em] uppercase text-[var(--text-primary)]">
+            L U M E
+          </h1>
+          <p className="auth-subtle mt-2">
+            Restore access using recovery phrase.
+          </p>
           <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
             <span className="lume-badge">Recovery</span>
             <span className="lume-badge">Phrase</span>
@@ -143,21 +170,35 @@ export default function RecoverPage() {
         </div>
 
         <div className="auth-card lume-panel p-5 sm:p-8 animate-fade-in-scale">
-          {step === 'phrase' && (
+          {step === "phrase" && (
             <>
               <div className="mb-6">
-                <label htmlFor="recover-username" className="block apple-label mb-2">Username</label>
+                <label
+                  htmlFor="recover-username"
+                  className="block apple-label mb-2"
+                >
+                  Username
+                </label>
                 <div className="relative mb-4">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">@</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
+                    @
+                  </span>
                   <input
                     id="recover-username"
                     value={username}
-                    onChange={(e) => setUsername(e.target.value.replace(/^@+/, '').trim())}
+                    onChange={(e) =>
+                      setUsername(e.target.value.replace(/^@+/, "").trim())
+                    }
                     placeholder="username"
                     className="apple-input apple-input-icon"
                   />
                 </div>
-                <label htmlFor="recover-mnemonic" className="block apple-label mb-2">Recovery Phrase</label>
+                <label
+                  htmlFor="recover-mnemonic"
+                  className="block apple-label mb-2"
+                >
+                  Recovery Phrase
+                </label>
                 <textarea
                   id="recover-mnemonic"
                   value={mnemonic}
@@ -166,7 +207,11 @@ export default function RecoverPage() {
                   rows={4}
                   className="apple-textarea"
                 />
-                {error && <p className="mt-2 text-sm text-[var(--text-secondary)]">{error}</p>}
+                {error && (
+                  <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                    {error}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -177,17 +222,22 @@ export default function RecoverPage() {
                 >
                   Continue
                 </button>
-                <button onClick={() => router.push('/')} className="w-full apple-button-secondary">
+                <button
+                  onClick={() => router.push("/")}
+                  className="w-full apple-button-secondary"
+                >
                   Back
                 </button>
               </div>
             </>
           )}
 
-          {step === 'pin' && (
+          {step === "pin" && (
             <>
               <div className="mb-6">
-                <label htmlFor="recover-pin" className="block apple-label mb-2">New PIN</label>
+                <label htmlFor="recover-pin" className="block apple-label mb-2">
+                  New PIN
+                </label>
                 <input
                   id="recover-pin"
                   type="password"
@@ -197,7 +247,12 @@ export default function RecoverPage() {
                   className="apple-input mb-4"
                 />
 
-                <label htmlFor="recover-pin-confirm" className="block apple-label mb-2">Repeat PIN</label>
+                <label
+                  htmlFor="recover-pin-confirm"
+                  className="block apple-label mb-2"
+                >
+                  Repeat PIN
+                </label>
                 <input
                   id="recover-pin-confirm"
                   type="password"
@@ -206,7 +261,11 @@ export default function RecoverPage() {
                   placeholder="...."
                   className="apple-input"
                 />
-                {error && <p className="mt-2 text-sm text-[var(--text-secondary)]">{error}</p>}
+                {error && (
+                  <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                    {error}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -221,10 +280,13 @@ export default function RecoverPage() {
                       Recovering...
                     </span>
                   ) : (
-                    'Recover'
+                    "Recover"
                   )}
                 </button>
-                <button onClick={() => setStep('phrase')} className="w-full apple-button-secondary">
+                <button
+                  onClick={() => setStep("phrase")}
+                  className="w-full apple-button-secondary"
+                >
                   Back
                 </button>
               </div>
