@@ -235,8 +235,19 @@ const insertMessage = db.prepare(`
   VALUES (?, ?, ?, ?)
 `)
 
-const getPendingMessages = db.prepare(`
-  SELECT * FROM pending_messages WHERE recipient_id = ? ORDER BY created_at ASC
+const getPendingMessagesFirst = db.prepare(`
+  SELECT * FROM pending_messages
+  WHERE recipient_id = ?
+  ORDER BY created_at ASC, id ASC
+  LIMIT ?
+`)
+
+const getPendingMessagesAfter = db.prepare(`
+  SELECT * FROM pending_messages
+  WHERE recipient_id = ?
+    AND (created_at > ? OR (created_at = ? AND id > ?))
+  ORDER BY created_at ASC, id ASC
+  LIMIT ?
 `)
 
 const getMessageById = db.prepare(`
@@ -263,6 +274,20 @@ const insertRequestSignature = db.prepare(`
 const cleanupOldRequestSignatures = db.prepare(`
   DELETE FROM request_signatures WHERE created_at < ?
 `)
+
+const countRequestSignatures = db.prepare(`
+  SELECT COUNT(*) as cnt FROM request_signatures
+`)
+
+const truncateOldestRequestSignatures = db.prepare(`
+  DELETE FROM request_signatures WHERE rowid IN (SELECT rowid FROM request_signatures ORDER BY created_at ASC LIMIT ?)
+`)
+
+// Throttle COUNT(*) checks: only query every 1000 inserts
+const SIG_ROW_CAP = 100_000
+const SIG_TRUNCATE_AMOUNT = 10_000
+const SIG_CHECK_INTERVAL = 1000
+let sigInsertsSinceCheck = 0
 
 const insertBlock = db.prepare(`
   INSERT OR IGNORE INTO blocked_users (blocker_id, blocked_id)
@@ -296,6 +321,10 @@ const deleteExpiredFiles = db.prepare(`
 
 const countUserFiles = db.prepare(`
   SELECT COUNT(*) as count FROM files WHERE uploader_id = ?
+`)
+
+const countAllFiles = db.prepare(`
+  SELECT COUNT(*) as count FROM files
 `)
 
 const insertGroup = db.prepare(`
@@ -363,10 +392,6 @@ export interface User {
   created_at: number
   last_seen: number | null
 }
-
-// Cache for getUsersByIds prepared statements keyed by number of IDs.
-const USERS_BY_IDS_CACHE_MAX = 50
-const getUsersByIdsCache = new Map<number, ReturnType<typeof db.prepare>>()
 
 export interface PendingMessage {
   id: string
@@ -460,25 +485,51 @@ export const database = {
     insertMessage.run(id, senderId, recipientId, encryptedPayload)
   },
 
-  getPendingMessages(recipientId: string): PendingMessage[] {
-    return getPendingMessages.all(recipientId) as PendingMessage[]
+  getPendingMessages(
+    recipientId: string,
+    options?: { limit?: number; afterId?: string }
+  ): { messages: PendingMessage[]; hasMore: boolean } {
+    const limit = Math.min(options?.limit ?? 100, 200)
+    const fetchCount = limit + 1
+
+    let rows: PendingMessage[]
+
+    if (options?.afterId) {
+      const cursor = getMessageById.get(options.afterId) as PendingMessage | undefined
+      if (!cursor) {
+        return { messages: [], hasMore: false }
+      }
+      rows = getPendingMessagesAfter.all(
+        recipientId,
+        cursor.created_at,
+        cursor.created_at,
+        cursor.id,
+        fetchCount
+      ) as PendingMessage[]
+    } else {
+      rows = getPendingMessagesFirst.all(recipientId, fetchCount) as PendingMessage[]
+    }
+
+    const hasMore = rows.length > limit
+    if (hasMore) {
+      rows = rows.slice(0, limit)
+    }
+
+    return { messages: rows, hasMore }
   },
 
   getUsersByIds(userIds: string[]): User[] {
     if (userIds.length === 0) return []
-    // Cache prepared statements by arity to avoid re-preparing on every call.
-    const key = userIds.length
-    if (!getUsersByIdsCache.has(key)) {
-      if (getUsersByIdsCache.size >= USERS_BY_IDS_CACHE_MAX) {
-        // Evict oldest entry (first inserted key) to bound memory
-        const oldest = getUsersByIdsCache.keys().next().value
-        if (oldest !== undefined) getUsersByIdsCache.delete(oldest)
-      }
-      const placeholders = userIds.map(() => '?').join(', ')
-      getUsersByIdsCache.set(key, db.prepare(`SELECT * FROM users WHERE id IN (${placeholders})`))
+    const results: User[] = []
+    for (let i = 0; i < userIds.length; i += 500) {
+      const chunk = userIds.slice(i, i + 500)
+      const placeholders = chunk.map(() => '?').join(', ')
+      const rows = db
+        .prepare(`SELECT * FROM users WHERE id IN (${placeholders})`)
+        .all(...chunk) as User[]
+      results.push(...rows)
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (getUsersByIdsCache.get(key)!.all as (...p: any[]) => unknown[])(...userIds) as User[]
+    return results
   },
 
   getMessageById(messageId: string): PendingMessage | undefined {
@@ -496,12 +547,17 @@ export const database = {
    */
   batchDeleteMessages(messageIds: string[], recipientId: string): number {
     if (messageIds.length === 0) return 0
-    const placeholders = messageIds.map(() => '?').join(',')
-    const stmt = db.prepare(`
-      DELETE FROM pending_messages
-      WHERE id IN (${placeholders}) AND recipient_id = ?
-    `)
-    return stmt.run(...messageIds, recipientId).changes
+    let totalDeleted = 0
+    for (let i = 0; i < messageIds.length; i += 500) {
+      const chunk = messageIds.slice(i, i + 500)
+      const placeholders = chunk.map(() => '?').join(',')
+      const stmt = db.prepare(`
+        DELETE FROM pending_messages
+        WHERE id IN (${placeholders}) AND recipient_id = ?
+      `)
+      totalDeleted += stmt.run(...chunk, recipientId).changes
+    }
+    return totalDeleted
   },
 
   deleteAllMessages(recipientId: string): void {
@@ -520,6 +576,16 @@ export const database = {
 
   rememberRequestSignature(requestHash: string, identityKey: string): boolean {
     const result = insertRequestSignature.run(requestHash, identityKey)
+    if (result.changes > 0) {
+      sigInsertsSinceCheck++
+      if (sigInsertsSinceCheck >= SIG_CHECK_INTERVAL) {
+        sigInsertsSinceCheck = 0
+        const row = countRequestSignatures.get() as { cnt: number }
+        if (row.cnt >= SIG_ROW_CAP) {
+          truncateOldestRequestSignatures.run(SIG_TRUNCATE_AMOUNT)
+        }
+      }
+    }
     return result.changes > 0
   },
 
@@ -567,6 +633,11 @@ export const database = {
     return result.count
   },
 
+  getAllFilesCount(): number {
+    const result = countAllFiles.get() as { count: number }
+    return result.count
+  },
+
   purgeExpiredFiles(nowSec: number): number {
     const result = deleteExpiredFiles.run(nowSec)
     return result.changes
@@ -595,6 +666,27 @@ export const database = {
 
   getGroupMembers(groupId: string): GroupMember[] {
     return getGroupMembers.all(groupId) as GroupMember[]
+  },
+
+  getGroupMembersForGroups(groupIds: string[]): Record<string, GroupMember[]> {
+    if (groupIds.length === 0) return {}
+    const result = new Map<string, GroupMember[]>()
+    for (const id of groupIds) {
+      result.set(id, [])
+    }
+    for (let i = 0; i < groupIds.length; i += 500) {
+      const chunk = groupIds.slice(i, i + 500)
+      const placeholders = chunk.map(() => '?').join(', ')
+      const rows = db
+        .prepare(
+          `SELECT gm.*, u.username FROM group_members gm JOIN users u ON u.id = gm.user_id WHERE gm.group_id IN (${placeholders})`
+        )
+        .all(...chunk) as GroupMember[]
+      for (const row of rows) {
+        result.get(row.group_id)?.push(row)
+      }
+    }
+    return Object.fromEntries(result)
   },
 
   getUserGroups(userId: string): Group[] {

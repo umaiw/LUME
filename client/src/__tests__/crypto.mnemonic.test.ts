@@ -21,60 +21,60 @@ import { decodeBase64 } from 'tweetnacl-util';
 // ── generateMnemonic ─────────────────────────────────────────────────────────
 
 describe('generateMnemonic', () => {
-  it('generates a 12-word mnemonic by default (128-bit strength)', () => {
-    const mnemonic = generateMnemonic();
+  it('generates a 12-word mnemonic by default (128-bit strength)', async () => {
+    const mnemonic = await generateMnemonic();
     const words = mnemonic.split(' ');
     expect(words.length).toBe(12);
   });
 
-  it('generates a 24-word mnemonic for 256-bit strength', () => {
-    const mnemonic = generateMnemonic(256);
+  it('generates a 24-word mnemonic for 256-bit strength', async () => {
+    const mnemonic = await generateMnemonic(256);
     const words = mnemonic.split(' ');
     expect(words.length).toBe(24);
   });
 
-  it('generates unique mnemonics on each call', () => {
-    const m1 = generateMnemonic();
-    const m2 = generateMnemonic();
+  it('generates unique mnemonics on each call', async () => {
+    const m1 = await generateMnemonic();
+    const m2 = await generateMnemonic();
     expect(m1).not.toBe(m2);
   });
 
-  it('generated mnemonic passes BIP39 validation', () => {
-    const mnemonic = generateMnemonic();
-    expect(validateMnemonic(mnemonic)).toBe(true);
+  it('generated mnemonic passes BIP39 validation', async () => {
+    const mnemonic = await generateMnemonic();
+    expect(await validateMnemonic(mnemonic)).toBe(true);
   });
 });
 
 // ── validateMnemonic ─────────────────────────────────────────────────────────
 
 describe('validateMnemonic', () => {
-  it('accepts a valid 12-word BIP39 mnemonic', () => {
-    const mnemonic = generateMnemonic();
-    expect(validateMnemonic(mnemonic)).toBe(true);
+  it('accepts a valid 12-word BIP39 mnemonic', async () => {
+    const mnemonic = await generateMnemonic();
+    expect(await validateMnemonic(mnemonic)).toBe(true);
   });
 
-  it('rejects a completely invalid string', () => {
-    expect(validateMnemonic('this is not valid at all')).toBe(false);
+  it('rejects a completely invalid string', async () => {
+    expect(await validateMnemonic('this is not valid at all')).toBe(false);
   });
 
-  it('rejects an empty string', () => {
-    expect(validateMnemonic('')).toBe(false);
+  it('rejects an empty string', async () => {
+    expect(await validateMnemonic('')).toBe(false);
   });
 
-  it('rejects a mnemonic with a wrong word', () => {
+  it('rejects a mnemonic with a wrong word', async () => {
     // Replace first word with a non-BIP39 word
-    const words = generateMnemonic().split(' ');
+    const words = (await generateMnemonic()).split(' ');
     words[0] = 'xxxxinvalidword';
-    expect(validateMnemonic(words.join(' '))).toBe(false);
+    expect(await validateMnemonic(words.join(' '))).toBe(false);
   });
 
-  it('rejects a mnemonic with wrong checksum (word shuffled)', () => {
-    const words = generateMnemonic().split(' ');
+  it('rejects a mnemonic with wrong checksum (word shuffled)', async () => {
+    const words = (await generateMnemonic()).split(' ');
     // Swap two words to break checksum
     [words[0], words[1]] = [words[1]!, words[0]!];
     // Most shuffles break the BIP39 checksum; this is non-deterministic
     // but overwhelmingly likely to fail. We do a best-effort check.
-    const isValid = validateMnemonic(words.join(' '));
+    const isValid = await validateMnemonic(words.join(' '));
     // It's theoretically possible (though extremely rare) for a swap to still be valid,
     // so we only assert that the function returns a boolean without throwing.
     expect(typeof isValid).toBe('boolean');
@@ -85,29 +85,29 @@ describe('validateMnemonic', () => {
 
 describe('mnemonicToSeed', () => {
   it('returns a 64-byte seed', async () => {
-    const mnemonic = generateMnemonic();
+    const mnemonic = await generateMnemonic();
     const seed = await mnemonicToSeed(mnemonic);
     expect(seed).toBeInstanceOf(Uint8Array);
     expect(seed.length).toBe(64);
   });
 
   it('is deterministic for the same mnemonic and passphrase', async () => {
-    const mnemonic = generateMnemonic();
+    const mnemonic = await generateMnemonic();
     const s1 = await mnemonicToSeed(mnemonic, 'pass');
     const s2 = await mnemonicToSeed(mnemonic, 'pass');
     expect(Buffer.from(s1).toString('hex')).toBe(Buffer.from(s2).toString('hex'));
   });
 
   it('produces different seeds for different passphrases', async () => {
-    const mnemonic = generateMnemonic();
+    const mnemonic = await generateMnemonic();
     const s1 = await mnemonicToSeed(mnemonic, '');
     const s2 = await mnemonicToSeed(mnemonic, 'secret');
     expect(Buffer.from(s1).toString('hex')).not.toBe(Buffer.from(s2).toString('hex'));
   });
 
   it('produces different seeds for different mnemonics', async () => {
-    const m1 = generateMnemonic();
-    const m2 = generateMnemonic();
+    const m1 = await generateMnemonic();
+    const m2 = await generateMnemonic();
     const s1 = await mnemonicToSeed(m1);
     const s2 = await mnemonicToSeed(m2);
     expect(Buffer.from(s1).toString('hex')).not.toBe(Buffer.from(s2).toString('hex'));
@@ -118,7 +118,7 @@ describe('mnemonicToSeed', () => {
 
 describe('recoverIdentityFromMnemonic', () => {
   it('returns an IdentityKeys object with signing and exchange keypairs', async () => {
-    const mnemonic = generateMnemonic();
+    const mnemonic = await generateMnemonic();
     const identity = await recoverIdentityFromMnemonic(mnemonic);
 
     expect(identity.signing).toBeDefined();
@@ -128,7 +128,7 @@ describe('recoverIdentityFromMnemonic', () => {
   });
 
   it('is deterministic — same mnemonic yields same keys', async () => {
-    const mnemonic = generateMnemonic();
+    const mnemonic = await generateMnemonic();
     const id1 = await recoverIdentityFromMnemonic(mnemonic);
     const id2 = await recoverIdentityFromMnemonic(mnemonic);
 
@@ -139,8 +139,8 @@ describe('recoverIdentityFromMnemonic', () => {
   });
 
   it('different mnemonics yield different keys', async () => {
-    const m1 = generateMnemonic();
-    const m2 = generateMnemonic();
+    const m1 = await generateMnemonic();
+    const m2 = await generateMnemonic();
     const id1 = await recoverIdentityFromMnemonic(m1);
     const id2 = await recoverIdentityFromMnemonic(m2);
 
@@ -149,7 +149,7 @@ describe('recoverIdentityFromMnemonic', () => {
   });
 
   it('passphrase changes the derived keys', async () => {
-    const mnemonic = generateMnemonic();
+    const mnemonic = await generateMnemonic();
     const id1 = await recoverIdentityFromMnemonic(mnemonic, '');
     const id2 = await recoverIdentityFromMnemonic(mnemonic, 'extra-passphrase');
     expect(id1.signing.publicKey).not.toBe(id2.signing.publicKey);
@@ -162,14 +162,14 @@ describe('recoverIdentityFromMnemonic', () => {
   });
 
   it('derived Ed25519 signing key has correct length (32 public, 64 secret)', async () => {
-    const mnemonic = generateMnemonic();
+    const mnemonic = await generateMnemonic();
     const identity = await recoverIdentityFromMnemonic(mnemonic);
     expect(decodeBase64(identity.signing.publicKey).length).toBe(32);
     expect(decodeBase64(identity.signing.secretKey).length).toBe(64);
   });
 
   it('derived X25519 exchange key has correct length (32 bytes each)', async () => {
-    const mnemonic = generateMnemonic();
+    const mnemonic = await generateMnemonic();
     const identity = await recoverIdentityFromMnemonic(mnemonic);
     expect(decodeBase64(identity.exchange.publicKey).length).toBe(32);
     expect(decodeBase64(identity.exchange.secretKey).length).toBe(32);
@@ -214,8 +214,8 @@ describe('maskMnemonic', () => {
     expect(masked).toBe('**** **** **** ****');
   });
 
-  it('shows first and last word, hides the middle', () => {
-    const mnemonic = generateMnemonic(); // 12 words
+  it('shows first and last word, hides the middle', async () => {
+    const mnemonic = await generateMnemonic(); // 12 words
     const words = mnemonic.split(' ');
     const masked = maskMnemonic(mnemonic);
 
@@ -225,8 +225,8 @@ describe('maskMnemonic', () => {
     expect(masked).toContain('...');
   });
 
-  it('does not expose any secret words in the middle', () => {
-    const mnemonic = generateMnemonic();
+  it('does not expose any secret words in the middle', async () => {
+    const mnemonic = await generateMnemonic();
     const words = mnemonic.split(' ');
     const masked = maskMnemonic(mnemonic);
     const maskedParts = masked.split(' ');
@@ -251,8 +251,8 @@ describe('getMnemonicWords', () => {
     expect(getMnemonicWords(mnemonic)).toEqual(['one', 'two', 'three']);
   });
 
-  it('returns 12 words for a standard 12-word mnemonic', () => {
-    const mnemonic = generateMnemonic();
+  it('returns 12 words for a standard 12-word mnemonic', async () => {
+    const mnemonic = await generateMnemonic();
     expect(getMnemonicWords(mnemonic).length).toBe(12);
   });
 });

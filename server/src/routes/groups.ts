@@ -20,6 +20,7 @@ const groupRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req: Request): string => {
+    if (req.user?.userId) return `group:${req.user.userId}`
     const identityKey = req.user?.identityKey
     if (identityKey) {
       const user = database.getUserByIdentityKey(identityKey)
@@ -30,6 +31,7 @@ const groupRateLimit = rateLimit({
 })
 
 function getSignerUser(req: Request) {
+  if (req.user?.userId) return database.getUserById(req.user.userId)
   return req.user?.identityKey ? database.getUserByIdentityKey(req.user.identityKey) : undefined
 }
 
@@ -80,9 +82,11 @@ router.get('/', requireSignature, (req: Request, res: Response) => {
     }
 
     const groups = database.getUserGroups(signer.id)
+    const groupIds = groups.map(g => g.id)
+    const membersByGroup = database.getGroupMembersForGroups(groupIds)
     const result = groups.map(g => ({
       ...g,
-      members: database.getGroupMembers(g.id),
+      members: membersByGroup[g.id] ?? [],
     }))
 
     res.json({ groups: result })

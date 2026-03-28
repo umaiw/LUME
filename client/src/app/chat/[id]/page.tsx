@@ -13,8 +13,27 @@ import LeftRail from "@/components/messenger/LeftRail";
 import ChatListPanel from "@/components/messenger/ChatListPanel";
 import RightRail from "@/components/messenger/RightRail";
 import { ChatListSkeleton, MessagesSkeleton } from "@/components/ui";
-import { ChatHeader, ChatInput, MessageBubbleMemo, ProfileModal } from "@/components/chat";
-import { AddContactModal, BackupModal, PanicModal } from "@/components/modals";
+import dynamic from "next/dynamic";
+import {
+  ChatHeader,
+  ChatInput,
+  MessageBubbleMemo,
+  ProfileModal,
+} from "@/components/chat";
+
+const AddContactModal = dynamic(
+  () =>
+    import("@/components/modals").then((m) => ({ default: m.AddContactModal })),
+  { ssr: false },
+);
+const BackupModal = dynamic(
+  () => import("@/components/modals").then((m) => ({ default: m.BackupModal })),
+  { ssr: false },
+);
+const PanicModal = dynamic(
+  () => import("@/components/modals").then((m) => ({ default: m.PanicModal })),
+  { ssr: false },
+);
 import { useMessengerSync } from "@/hooks/useMessengerSync";
 import { useContactActions } from "@/hooks/useContactActions";
 import { usePanic } from "@/hooks/usePanic";
@@ -44,7 +63,11 @@ import {
 } from "@/crypto/ratchet";
 import { computeSafetyNumber } from "@/crypto/safetyNumber";
 import type { PendingAttachment } from "@/components/chat/ChatInput";
-import { encryptFile, readFileAsUint8Array, isImageMime } from "@/lib/fileEncryption";
+import {
+  encryptFile,
+  readFileAsUint8Array,
+  isImageMime,
+} from "@/lib/fileEncryption";
 import type { MessageAttachment } from "@/stores";
 
 interface ChatPageProps {
@@ -61,28 +84,28 @@ export default function ChatPage({ params }: ChatPageProps) {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingStateRef = useRef(false);
 
-  const { userId, identityKeys, masterKey } = useAuthStore();
-  const { contacts, removeContact } = useContactsStore();
+  const userId = useAuthStore((s) => s.userId);
+  const identityKeys = useAuthStore((s) => s.identityKeys);
+  const masterKey = useAuthStore((s) => s.masterKey);
+  const contacts = useContactsStore((s) => s.contacts);
+  const removeContact = useContactsStore((s) => s.removeContact);
   const avatarMap = useContactAvatars(contacts);
-  const { upsertSession, deleteSession } = useSessionsStore();
-  const {
-    chats,
-    addMessage,
-    updateMessage,
-    deleteMessage,
-    deleteChat,
-    setChatHidden,
-    markAsRead,
-    setSelfDestructTimer,
-    activeChatId,
-    setActiveChat,
-  } = useChatsStore();
-  const {
-    setCryptoBanner,
-    clearCryptoBanner,
-    showHiddenChats,
-    setShowHiddenChats,
-  } = useUIStore();
+  const upsertSession = useSessionsStore((s) => s.upsertSession);
+  const deleteSession = useSessionsStore((s) => s.deleteSession);
+  const chats = useChatsStore((s) => s.chats);
+  const addMessage = useChatsStore((s) => s.addMessage);
+  const updateMessage = useChatsStore((s) => s.updateMessage);
+  const deleteMessage = useChatsStore((s) => s.deleteMessage);
+  const deleteChat = useChatsStore((s) => s.deleteChat);
+  const setChatHidden = useChatsStore((s) => s.setChatHidden);
+  const markAsRead = useChatsStore((s) => s.markAsRead);
+  const setSelfDestructTimer = useChatsStore((s) => s.setSelfDestructTimer);
+  const activeChatId = useChatsStore((s) => s.activeChatId);
+  const setActiveChat = useChatsStore((s) => s.setActiveChat);
+  const setCryptoBanner = useUIStore((s) => s.setCryptoBanner);
+  const clearCryptoBanner = useUIStore((s) => s.clearCryptoBanner);
+  const showHiddenChats = useUIStore((s) => s.showHiddenChats);
+  const setShowHiddenChats = useUIStore((s) => s.setShowHiddenChats);
 
   const {
     showAddContact,
@@ -108,10 +131,14 @@ export default function ChatPage({ params }: ChatPageProps) {
   const [selfDestructTime, setSelfDestructTime] = useState<number | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
+  const [pendingAttachment, setPendingAttachment] =
+    useState<PendingAttachment | null>(null);
   const [contactAvatarUrl, setContactAvatarUrl] = useState<string | null>(null);
 
-  const isValidChatId = /^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/.test(chatId);
+  const isValidChatId =
+    /^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/.test(
+      chatId,
+    );
   const chat = isValidChatId ? chats.find((c) => c.id === chatId) : undefined;
   const contact = contacts.find((c) => c.id === chat?.contactId);
   const contactId = contact?.id;
@@ -162,7 +189,9 @@ export default function ChatPage({ params }: ChatPageProps) {
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [contactId, identityKeys]);
 
   useEffect(() => {
@@ -172,10 +201,12 @@ export default function ChatPage({ params }: ChatPageProps) {
 
     // Send read receipts for unread messages from the contact
     if (contactId) {
-      const currentChat = useChatsStore.getState().chats.find((c) => c.id === chatId);
+      const currentChat = useChatsStore
+        .getState()
+        .chats.find((c) => c.id === chatId);
       if (currentChat) {
         const unreadFromContact = currentChat.messages.filter(
-          (m) => m.senderId === contactId && m.status !== 'read',
+          (m) => m.senderId === contactId && m.status !== "read",
         );
         if (unreadFromContact.length > 0) {
           wsClient.sendReadReceipt(
@@ -278,7 +309,9 @@ export default function ChatPage({ params }: ChatPageProps) {
   }, [contactId]);
 
   const handleAttach = useCallback((file: File) => {
-    const preview = isImageMime(file.type) ? URL.createObjectURL(file) : undefined;
+    const preview = isImageMime(file.type)
+      ? URL.createObjectURL(file)
+      : undefined;
     setPendingAttachment({ file, preview });
   }, []);
 
@@ -298,17 +331,15 @@ export default function ChatPage({ params }: ChatPageProps) {
     [chatId, deleteMessage],
   );
 
-  const handleReply = useCallback(
-    (message: Message) => {
-      setReplyingTo(message);
-    },
-    [],
-  );
+  const handleReply = useCallback((message: Message) => {
+    setReplyingTo(message);
+  }, []);
 
   const handleSend = async () => {
     const hasText = messageText.trim().length > 0;
     const hasAttachment = !!pendingAttachment;
-    if ((!hasText && !hasAttachment) || !contact || !userId || !identityKeys) return;
+    if ((!hasText && !hasAttachment) || !contact || !userId || !identityKeys)
+      return;
 
     setSending(true);
 
@@ -321,14 +352,19 @@ export default function ChatPage({ params }: ChatPageProps) {
     if (pendingAttachment) {
       try {
         const fileData = await readFileAsUint8Array(pendingAttachment.file);
-        const encrypted = encryptFile(fileData, pendingAttachment.file.type, pendingAttachment.file.name);
-        const { data: uploadResult, error: uploadError } = await filesApi.upload(
-          encrypted.ciphertext,
-          encrypted.mimeType,
-          identityKeys,
+        const encrypted = await encryptFile(
+          fileData,
+          pendingAttachment.file.type,
+          pendingAttachment.file.name,
         );
+        const { data: uploadResult, error: uploadError } =
+          await filesApi.upload(
+            encrypted.ciphertext,
+            encrypted.mimeType,
+            identityKeys,
+          );
         if (uploadError || !uploadResult) {
-          throw new Error(uploadError || 'File upload failed');
+          throw new Error(uploadError || "File upload failed");
         }
         attachmentMeta = {
           fileId: uploadResult.fileId,
@@ -339,29 +375,36 @@ export default function ChatPage({ params }: ChatPageProps) {
           nonce: encrypted.nonce,
         };
       } catch (err) {
-        if (process.env.NODE_ENV !== 'production') console.error('File upload error:', err);
+        if (process.env.NODE_ENV !== "production")
+          console.error("File upload error:", err);
         setSending(false);
         return;
       }
     }
 
     const msgType = attachmentMeta
-      ? (isImageMime(attachmentMeta.mimeType) ? 'image' : 'file')
-      : 'text';
+      ? isImageMime(attachmentMeta.mimeType)
+        ? "image"
+        : "file"
+      : "text";
 
     const message: Message = {
       id: messageId,
       chatId,
       senderId: userId,
       content: outgoingText,
-      type: msgType as Message['type'],
+      type: msgType as Message["type"],
       timestamp,
       status: "sending",
       selfDestructAt: selfDestructTime
         ? timestamp + selfDestructTime * 1000
         : undefined,
       replyTo: replyingTo
-        ? { messageId: replyingTo.id, content: replyingTo.content, senderId: replyingTo.senderId }
+        ? {
+            messageId: replyingTo.id,
+            content: replyingTo.content,
+            senderId: replyingTo.senderId,
+          }
         : undefined,
       attachment: attachmentMeta,
     };
@@ -376,7 +419,11 @@ export default function ChatPage({ params }: ChatPageProps) {
 
     try {
       const replyRef = replyingTo
-        ? { messageId: replyingTo.id, content: replyingTo.content.slice(0, 200), senderId: replyingTo.senderId }
+        ? {
+            messageId: replyingTo.id,
+            content: replyingTo.content.slice(0, 200),
+            senderId: replyingTo.senderId,
+          }
         : undefined;
       const plaintext = JSON.stringify({
         content: outgoingText,
@@ -472,7 +519,8 @@ export default function ChatPage({ params }: ChatPageProps) {
         });
       }
     } catch (sendError) {
-      if (process.env.NODE_ENV !== 'production') console.error("Send message error:", sendError);
+      if (process.env.NODE_ENV !== "production")
+        console.error("Send message error:", sendError);
       const msg =
         sendError instanceof Error ? sendError.message : String(sendError);
       if (
@@ -511,7 +559,7 @@ export default function ChatPage({ params }: ChatPageProps) {
     deleteSession(contactId);
     removeContact(contactId);
     setShowProfile(false);
-    router.push('/chats');
+    router.push("/chats");
   };
 
   const handleHideChat = () => {
@@ -520,7 +568,7 @@ export default function ChatPage({ params }: ChatPageProps) {
     if (nextHidden) {
       setShowHiddenChats(false);
       setShowProfile(false);
-      router.push('/chats');
+      router.push("/chats");
     }
   };
 
@@ -532,7 +580,10 @@ export default function ChatPage({ params }: ChatPageProps) {
         leftRail={<div className="h-full" />}
         chatList={<ChatListSkeleton />}
         main={
-          <div aria-busy="true" className="lume-panel h-full rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] overflow-hidden flex flex-col">
+          <div
+            aria-busy="true"
+            className="lume-panel h-full rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] overflow-hidden flex flex-col"
+          >
             <div className="px-5 pt-5 pb-4 border-b border-[var(--border)]/70">
               <div className="flex items-center gap-3">
                 <span className="block w-10 h-10 rounded-full bg-[var(--surface-alt)] animate-pulse" />
@@ -639,9 +690,11 @@ export default function ChatPage({ params }: ChatPageProps) {
               let replyAuthorName: string | undefined;
               if (m.replyTo) {
                 if (m.replyTo.senderId === userId) {
-                  replyAuthorName = 'You';
+                  replyAuthorName = "You";
                 } else {
-                  replyAuthorName = contacts.find((c) => c.id === m.replyTo!.senderId)?.username || 'Unknown';
+                  replyAuthorName =
+                    contacts.find((c) => c.id === m.replyTo!.senderId)
+                      ?.username || "Unknown";
                 }
               }
               return (

@@ -11,7 +11,21 @@ import { UploadFileBodySchema, FileIdParamSchema } from '../schemas/files'
 
 const router = Router()
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, '../../data/uploads')
+const UPLOAD_DIR = path.resolve(
+  process.env.UPLOAD_DIR || path.join(__dirname, '../../data/uploads')
+)
+
+/**
+ * Safely resolve a file path within UPLOAD_DIR.
+ * Returns null if the resolved path escapes the upload directory (path traversal).
+ */
+function safeFilePath(fileId: string): string | null {
+  const resolved = path.resolve(UPLOAD_DIR, fileId)
+  if (!resolved.startsWith(UPLOAD_DIR + path.sep) && resolved !== UPLOAD_DIR) {
+    return null
+  }
+  return resolved
+}
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 const MAX_FILES_PER_USER = 500
 const FILE_EXPIRY_DAYS = 30
@@ -25,6 +39,7 @@ const uploadRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req: Request): string => {
+    if (req.user?.userId) return `upload:${req.user.userId}`
     const identityKey = req.user?.identityKey
     if (identityKey) {
       const user = database.getUserByIdentityKey(identityKey)
@@ -40,6 +55,7 @@ const downloadRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req: Request): string => {
+    if (req.user?.userId) return `download:${req.user.userId}`
     const identityKey = req.user?.identityKey
     if (identityKey) {
       const user = database.getUserByIdentityKey(identityKey)
@@ -55,18 +71,16 @@ router.post(
   requireSignature,
   uploadRateLimit,
   validateBody(UploadFileBodySchema),
-  (req: Request, res: Response) => {
+  async (req: Request, res: Response) => {
     try {
-      const signer = req.user?.identityKey
-        ? database.getUserByIdentityKey(req.user.identityKey)
-        : undefined
-      if (!signer) {
+      const signerId = req.user?.userId
+      if (!signerId) {
         res.status(403).json({ error: 'Unauthorized' })
         return
       }
 
       // Check file count limit
-      if (database.getUserFileCount(signer.id) >= MAX_FILES_PER_USER) {
+      if (database.getUserFileCount(signerId) >= MAX_FILES_PER_USER) {
         res.status(429).json({ error: 'File storage limit reached' })
         return
       }
@@ -86,10 +100,14 @@ router.post(
       const expiresAt = Math.floor(Date.now() / 1000) + FILE_EXPIRY_DAYS * 24 * 60 * 60
 
       // Write encrypted blob to disk
-      const filePath = path.join(UPLOAD_DIR, fileId)
-      fs.writeFileSync(filePath, buffer)
+      const filePath = safeFilePath(fileId)
+      if (!filePath) {
+        res.status(400).json({ error: 'Invalid file ID' })
+        return
+      }
+      await fs.promises.writeFile(filePath, buffer)
 
-      database.createFile(fileId, signer.id, buffer.length, safeMime, expiresAt)
+      database.createFile(fileId, signerId, buffer.length, safeMime, expiresAt)
 
       res.status(201).json({
         fileId,
@@ -103,20 +121,17 @@ router.post(
   }
 )
 
-// GET /files/:fileId — download an encrypted file blob
+// GET /files/:fileId/raw — stream encrypted file blob as binary (preferred)
 router.get(
-  '/:fileId',
+  '/:fileId/raw',
   requireSignature,
   downloadRateLimit,
   validateParams(FileIdParamSchema),
-  (req: Request, res: Response) => {
+  async (req: Request, res: Response) => {
     try {
       const fileId = req.params.fileId!
 
-      const signer = req.user?.identityKey
-        ? database.getUserByIdentityKey(req.user.identityKey)
-        : undefined
-      if (!signer) {
+      if (!req.user?.userId) {
         res.status(403).json({ error: 'Unauthorized' })
         return
       }
@@ -133,13 +148,84 @@ router.get(
         return
       }
 
-      const filePath = path.join(UPLOAD_DIR, fileId)
-      if (!fs.existsSync(filePath)) {
+      const filePath = safeFilePath(fileId)
+      if (!filePath) {
+        res.status(400).json({ error: 'Invalid file ID' })
+        return
+      }
+
+      let stat: fs.Stats
+      try {
+        stat = await fs.promises.stat(filePath)
+      } catch {
         res.status(404).json({ error: 'File not found on disk' })
         return
       }
 
-      const data = fs.readFileSync(filePath)
+      res.setHeader('Content-Type', 'application/octet-stream')
+      res.setHeader('Content-Length', stat.size)
+      res.setHeader('X-File-Id', file.id)
+      res.setHeader('X-Mime-Hint', file.mime_hint ?? 'application/octet-stream')
+
+      const stream = fs.createReadStream(filePath)
+      stream.on('error', err => {
+        console.error('File stream error:', err instanceof Error ? err.message : String(err))
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Failed to stream file' })
+        } else {
+          res.destroy()
+        }
+      })
+      stream.pipe(res)
+    } catch (error) {
+      console.error('File download error:', error instanceof Error ? error.message : String(error))
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to download file' })
+      }
+    }
+  }
+)
+
+// GET /files/:fileId — download an encrypted file blob (legacy JSON, use /:fileId/raw instead)
+router.get(
+  '/:fileId',
+  requireSignature,
+  downloadRateLimit,
+  validateParams(FileIdParamSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const fileId = req.params.fileId!
+
+      if (!req.user?.userId) {
+        res.status(403).json({ error: 'Unauthorized' })
+        return
+      }
+
+      const file = database.getFileById(fileId)
+      if (!file) {
+        res.status(404).json({ error: 'File not found' })
+        return
+      }
+
+      // Check expiry
+      if (file.expires_at && file.expires_at < Math.floor(Date.now() / 1000)) {
+        res.status(410).json({ error: 'File expired' })
+        return
+      }
+
+      const filePath = safeFilePath(fileId)
+      if (!filePath) {
+        res.status(400).json({ error: 'Invalid file ID' })
+        return
+      }
+      try {
+        await fs.promises.access(filePath)
+      } catch {
+        res.status(404).json({ error: 'File not found on disk' })
+        return
+      }
+
+      const data = await fs.promises.readFile(filePath)
       res.json({
         fileId: file.id,
         data: data.toString('base64'),

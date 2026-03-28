@@ -3,23 +3,32 @@
  * Генерирует 12-24 слова, из которых детерминированно создаются ключи
  */
 
-import * as bip39 from 'bip39';
 import nacl from 'tweetnacl';
 import { encodeBase64 } from 'tweetnacl-util';
 import { zeroBytes, type IdentityKeys } from './keys';
 
 /**
+ * Lazy-loads the bip39 library (~50KB) to keep it out of the initial bundle.
+ * Only needed during signup/recovery flows.
+ */
+async function loadBip39() {
+    return import('bip39');
+}
+
+/**
  * Генерирует новую мнемоническую фразу (12 слов по умолчанию)
  */
-export function generateMnemonic(strength: 128 | 256 = 128): string {
+export async function generateMnemonic(strength: 128 | 256 = 128): Promise<string> {
     // 128 бит = 12 слов, 256 бит = 24 слова
+    const bip39 = await loadBip39();
     return bip39.generateMnemonic(strength);
 }
 
 /**
  * Проверяет валидность мнемонической фразы
  */
-export function validateMnemonic(mnemonic: string): boolean {
+export async function validateMnemonic(mnemonic: string): Promise<boolean> {
+    const bip39 = await loadBip39();
     return bip39.validateMnemonic(mnemonic);
 }
 
@@ -27,6 +36,7 @@ export function validateMnemonic(mnemonic: string): boolean {
  * Преобразует мнемоническую фразу в seed (512 бит)
  */
 export async function mnemonicToSeed(mnemonic: string, passphrase: string = ''): Promise<Uint8Array> {
+    const bip39 = await loadBip39();
     const seedBuffer = await bip39.mnemonicToSeed(mnemonic, passphrase);
     return new Uint8Array(seedBuffer);
 }
@@ -71,7 +81,7 @@ export async function recoverIdentityFromMnemonic(
     mnemonic: string,
     passphrase: string = ''
 ): Promise<IdentityKeys> {
-    if (!validateMnemonic(mnemonic)) {
+    if (!(await validateMnemonic(mnemonic))) {
         throw new Error('Invalid mnemonic phrase');
     }
 
@@ -95,7 +105,7 @@ export async function createAccountWithMnemonic(
     mnemonic: string;
     identity: IdentityKeys;
 }> {
-    const mnemonic = generateMnemonic(strength);
+    const mnemonic = await generateMnemonic(strength);
     const identity = await recoverIdentityFromMnemonic(mnemonic, passphrase);
 
     return {

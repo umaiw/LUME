@@ -14,21 +14,51 @@ import ChatListPanel from "@/components/messenger/ChatListPanel";
 import RightRail from "@/components/messenger/RightRail";
 import { ChatListSkeleton } from "@/components/ui";
 import GroupView from "@/components/chat/GroupView";
-import { AddContactModal, BackupModal, CreateGroupModal, PanicModal } from "@/components/modals";
+import dynamic from "next/dynamic";
+
+const AddContactModal = dynamic(
+  () =>
+    import("@/components/modals").then((m) => ({ default: m.AddContactModal })),
+  { ssr: false },
+);
+const BackupModal = dynamic(
+  () => import("@/components/modals").then((m) => ({ default: m.BackupModal })),
+  { ssr: false },
+);
+const CreateGroupModal = dynamic(
+  () =>
+    import("@/components/modals").then((m) => ({
+      default: m.CreateGroupModal,
+    })),
+  { ssr: false },
+);
+const PanicModal = dynamic(
+  () => import("@/components/modals").then((m) => ({ default: m.PanicModal })),
+  { ssr: false },
+);
 import { useMessengerSync } from "@/hooks/useMessengerSync";
 import { useContactActions } from "@/hooks/useContactActions";
 import { usePanic } from "@/hooks/usePanic";
 import { groupsApi } from "@/lib/api";
-import { useAuthStore, useContactsStore, useChatsStore, useGroupsStore } from "@/stores";
+import {
+  useAuthStore,
+  useContactsStore,
+  useChatsStore,
+  useGroupsStore,
+} from "@/stores";
 import { useContactAvatars } from "@/hooks/useContactAvatars";
 
 export default function ChatsPage() {
   const router = useRouter();
 
   const { hydrated } = useMessengerSync();
-  const { isAuthenticated, identityKeys, masterKey } = useAuthStore();
-  const { contacts } = useContactsStore();
-  const { chats, activeChatId, setActiveChat } = useChatsStore();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const identityKeys = useAuthStore((s) => s.identityKeys);
+  const masterKey = useAuthStore((s) => s.masterKey);
+  const contacts = useContactsStore((s) => s.contacts);
+  const chats = useChatsStore((s) => s.chats);
+  const activeChatId = useChatsStore((s) => s.activeChatId);
+  const setActiveChat = useChatsStore((s) => s.setActiveChat);
   const { groups, activeGroupId, setGroups, setActiveGroup } = useGroupsStore();
   const avatarMap = useContactAvatars(contacts);
 
@@ -75,7 +105,10 @@ export default function ChatsPage() {
         leftRail={<div className="h-full" />}
         chatList={<ChatListSkeleton />}
         main={
-          <div aria-busy="true" className="lume-panel h-full rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] flex items-center justify-center">
+          <div
+            aria-busy="true"
+            className="lume-panel h-full rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] flex items-center justify-center"
+          >
             <div className="w-8 h-8 border-2 mono-spinner rounded-full animate-spin" />
           </div>
         }
@@ -99,7 +132,7 @@ export default function ChatsPage() {
   };
 
   const activeGroup = activeGroupId
-    ? groups.find((g) => g.id === activeGroupId) ?? null
+    ? (groups.find((g) => g.id === activeGroupId) ?? null)
     : null;
 
   if (isPanicMode) {
@@ -148,9 +181,11 @@ export default function ChatsPage() {
     </div>
   );
 
-  const mainContent = activeGroup
-    ? <GroupView group={activeGroup} />
-    : emptyMain;
+  const mainContent = activeGroup ? (
+    <GroupView group={activeGroup} />
+  ) : (
+    emptyMain
+  );
 
   const chatListNode = (
     <ChatListPanel

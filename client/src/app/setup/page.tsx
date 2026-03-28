@@ -25,7 +25,7 @@ type Step = "generate" | "backup" | "verify" | "username" | "pin" | "complete";
 
 export default function SetupPage() {
   const router = useRouter();
-  const { setAuth } = useAuthStore();
+  const setAuth = useAuthStore((s) => s.setAuth);
 
   const [step, setStep] = useState<Step>("generate");
   const [mnemonic, setMnemonic] = useState<string>("");
@@ -71,7 +71,7 @@ export default function SetupPage() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     // Auto-clear clipboard after 15 seconds to prevent lingering mnemonic
-    setTimeout(() => navigator.clipboard.writeText('').catch(() => {}), 15000);
+    setTimeout(() => navigator.clipboard.writeText("").catch(() => {}), 15000);
   };
 
   const handleConfirmBackup = () => {
@@ -191,7 +191,8 @@ export default function SetupPage() {
         router.push("/chats");
       }, 1800);
     } catch (registrationError) {
-      if (process.env.NODE_ENV !== 'production') console.error("Registration error:", registrationError);
+      if (process.env.NODE_ENV !== "production")
+        console.error("Registration error:", registrationError);
       setUsernameError("Registration error");
     } finally {
       setLoading(false);
@@ -300,7 +301,10 @@ export default function SetupPage() {
               <div className="space-y-5 mb-8">
                 {verifyPositions.map((pos, index) => (
                   <div key={pos}>
-                    <label htmlFor={`verify-word-${pos}`} className="block text-xs uppercase tracking-[0.08em] text-[var(--text-muted)] mb-2">
+                    <label
+                      htmlFor={`verify-word-${pos}`}
+                      className="block text-xs uppercase tracking-[0.08em] text-[var(--text-muted)] mb-2"
+                    >
                       Word #{pos + 1}
                     </label>
                     <input
@@ -355,7 +359,12 @@ export default function SetupPage() {
               </div>
 
               <div className="mb-8">
-                <label htmlFor="setup-username" className="block apple-label mb-2">Username</label>
+                <label
+                  htmlFor="setup-username"
+                  className="block apple-label mb-2"
+                >
+                  Username
+                </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
                     @
@@ -399,7 +408,9 @@ export default function SetupPage() {
 
               <div className="space-y-5 mb-8">
                 <div>
-                  <label htmlFor="setup-pin" className="block apple-label mb-2">PIN</label>
+                  <label htmlFor="setup-pin" className="block apple-label mb-2">
+                    PIN
+                  </label>
                   <input
                     id="setup-pin"
                     type="password"
@@ -410,7 +421,12 @@ export default function SetupPage() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="setup-pin-confirm" className="block apple-label mb-2">Repeat PIN</label>
+                  <label
+                    htmlFor="setup-pin-confirm"
+                    className="block apple-label mb-2"
+                  >
+                    Repeat PIN
+                  </label>
                   <input
                     id="setup-pin-confirm"
                     type="password"

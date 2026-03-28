@@ -125,8 +125,9 @@ export const requireSignature = (req: Request, res: Response, next: NextFunction
       return
     }
 
-    // Pass identity key to next handler if needed
-    req.user = { identityKey }
+    // Pass identity key (and resolved userId when available) to next handler
+    const signer = database.getUserByIdentityKey(identityKey)
+    req.user = { identityKey, userId: signer?.id }
     next()
   } catch (error) {
     console.error('Auth middleware error:', error instanceof Error ? error.message : String(error))
@@ -140,6 +141,7 @@ declare global {
     interface Request {
       user?: {
         identityKey: string
+        userId?: string
       }
     }
   }

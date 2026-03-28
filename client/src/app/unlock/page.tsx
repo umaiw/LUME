@@ -22,7 +22,7 @@ import { checkAndRotateSpk, backfillSpkCreatedAt } from "@/crypto/spkRotation";
 
 export default function UnlockPage() {
   const router = useRouter();
-  const { setAuth } = useAuthStore();
+  const setAuth = useAuthStore((s) => s.setAuth);
 
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
@@ -77,8 +77,10 @@ export default function UnlockPage() {
       // Always try to reconcile stored userId with the server's current record.
       // This prevents "User not found" loops after DB resets or stale local settings.
       if (resolvedUsername) {
-        const { data: serverUser, error: serverError } =
-          await authApi.getUser(resolvedUsername, identity);
+        const { data: serverUser, error: serverError } = await authApi.getUser(
+          resolvedUsername,
+          identity,
+        );
 
         if (serverUser) {
           if (serverUser.identityKey !== identity.signing.publicKey) {
@@ -131,14 +133,17 @@ export default function UnlockPage() {
         identity,
       );
       if (spkResult.error) {
-        if (process.env.NODE_ENV !== 'production') console.warn("SPK rotation issue during unlock:", spkResult.error);
+        if (process.env.NODE_ENV !== "production")
+          console.warn("SPK rotation issue during unlock:", spkResult.error);
       }
 
       setAuth(resolvedUserId, resolvedUsername, identity, masterKey);
       router.push("/chats");
     } catch (unlockError) {
-      if (process.env.NODE_ENV !== 'production') console.error("Unlock error:", unlockError);
-      const msg = unlockError instanceof Error ? unlockError.message : "Unlock error";
+      if (process.env.NODE_ENV !== "production")
+        console.error("Unlock error:", unlockError);
+      const msg =
+        unlockError instanceof Error ? unlockError.message : "Unlock error";
       setError(msg.startsWith("Too many") ? msg : "Unlock error");
     } finally {
       setLoading(false);
@@ -228,7 +233,12 @@ export default function UnlockPage() {
 
         <div className="auth-card lume-panel p-6 sm:p-8 animate-fade-in-scale">
           <div className="mb-6">
-            <label htmlFor="unlock-pin" className="block apple-label mb-2 text-center">PIN</label>
+            <label
+              htmlFor="unlock-pin"
+              className="block apple-label mb-2 text-center"
+            >
+              PIN
+            </label>
             <input
               id="unlock-pin"
               type="password"

@@ -40,3 +40,21 @@ export function validateParams<T extends ZodSchema>(schema: T) {
     next()
   }
 }
+
+export function validateQuery<T extends ZodSchema>(schema: T) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const result = schema.safeParse(req.query)
+    if (!result.success) {
+      const issue = result.error.issues[0]
+      const msg = issue
+        ? issue.path.length > 0
+          ? `${String(issue.path.join('.'))}: ${issue.message}`
+          : issue.message
+        : 'Validation error'
+      res.status(400).json({ error: msg })
+      return
+    }
+    ;(req as Request & { validatedQuery?: unknown }).validatedQuery = result.data
+    next()
+  }
+}

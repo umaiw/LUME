@@ -99,7 +99,7 @@ function AttachmentView({ attachment }: { attachment: MessageAttachment }) {
     try {
       const { data, error: dlError } = await filesApi.download(attachment.fileId, identityKeys);
       if (dlError || !data) throw new Error(dlError || 'Download failed');
-      const decrypted = decryptFile(data.data, attachment.nonce, attachment.key, attachment.mimeType, attachment.fileName);
+      const decrypted = await decryptFile(data.data, attachment.nonce, attachment.key, attachment.mimeType, attachment.fileName);
       if (!decrypted) throw new Error('Decryption failed');
       const url = createFileUrl(decrypted.data, decrypted.mimeType);
       if (isImage) {

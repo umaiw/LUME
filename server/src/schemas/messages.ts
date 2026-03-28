@@ -24,6 +24,16 @@ export const PendingParamSchema = z.object({
   userId: UuidSchema,
 })
 
+// GET /messages/pending/:userId query params (cursor-based pagination)
+export const PendingQuerySchema = z.object({
+  limit: z
+    .string()
+    .optional()
+    .transform(val => (val !== undefined ? Number(val) : 100))
+    .pipe(z.number().int().min(1).max(200)),
+  after: UuidSchema.optional(),
+})
+
 // DELETE /messages/:messageId
 export const MessageIdParamSchema = z.object({
   messageId: UuidSchema,

@@ -17,7 +17,8 @@ import { wsClient } from "@/lib/websocket";
 import { panicWipe } from "@/crypto/storage";
 
 export function usePanic() {
-  const { isPanicMode, setPanicMode } = useUIStore();
+  const isPanicMode = useUIStore((s) => s.isPanicMode);
+  const setPanicMode = useUIStore((s) => s.setPanicMode);
 
   const [showPanicConfirm, setShowPanicConfirm] = useState(false);
 

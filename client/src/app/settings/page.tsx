@@ -12,11 +12,7 @@ import LeftRail from "@/components/messenger/LeftRail";
 import { useMessengerSync } from "@/hooks/useMessengerSync";
 import { usePanic } from "@/hooks/usePanic";
 import { useAuthStore } from "@/stores";
-import {
-  loadSettings,
-  saveSettings,
-  type Settings,
-} from "@/crypto/storage";
+import { loadSettings, saveSettings, type Settings } from "@/crypto/storage";
 import { applyTheme } from "@/lib/theme";
 import { isSoundEnabled } from "@/lib/sounds";
 
@@ -30,7 +26,8 @@ import DangerZoneSection from "./components/DangerZoneSection";
 export default function SettingsPage() {
   const router = useRouter();
   const { hydrated } = useMessengerSync();
-  const { isAuthenticated, masterKey } = useAuthStore();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const masterKey = useAuthStore((s) => s.masterKey);
   const { isPanicMode, showPanicConfirm, setShowPanicConfirm, executePanic } =
     usePanic();
 
@@ -83,7 +80,10 @@ export default function SettingsPage() {
             leftRail={<div className="h-full" />}
             chatList={<SettingsSkeleton />}
             main={
-              <div aria-busy="true" className="lume-panel h-full rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] flex items-center justify-center">
+              <div
+                aria-busy="true"
+                className="lume-panel h-full rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-sm)] flex items-center justify-center"
+              >
                 <div className="w-8 h-8 border-2 mono-spinner rounded-full animate-spin" />
               </div>
             }
@@ -116,8 +116,18 @@ export default function SettingsPage() {
             aria-label="Back to chats"
             title="Back"
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            <svg
+              className="w-5 h-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
           <h1 className="text-[12px] font-semibold uppercase tracking-[0.34em] text-[var(--text-primary)]">
@@ -154,9 +164,9 @@ export default function SettingsPage() {
         {backupWarning ? (
           <div className="p-3 rounded-[var(--radius-md)] border border-[var(--text-muted)]/30 bg-[var(--surface-alt)]">
             <p className="text-[12px] text-[var(--text-secondary)] leading-relaxed">
-              <span className="font-semibold">PIN changed.</span> Old backups are
-              encrypted with the previous PIN. Create a new backup to use the
-              current PIN.
+              <span className="font-semibold">PIN changed.</span> Old backups
+              are encrypted with the previous PIN. Create a new backup to use
+              the current PIN.
             </p>
             <button
               type="button"
@@ -228,7 +238,9 @@ export default function SettingsPage() {
   return (
     <div className="h-[100dvh] w-full overflow-hidden">
       {/* Mobile: settings panel full-screen */}
-      <div className="md:hidden h-full min-h-0 p-2 sm:p-4">{settingsContent}</div>
+      <div className="md:hidden h-full min-h-0 p-2 sm:p-4">
+        {settingsContent}
+      </div>
 
       {/* Desktop: sidebar shell */}
       <div className="hidden md:block h-full min-h-0">

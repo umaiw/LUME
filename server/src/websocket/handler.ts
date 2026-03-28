@@ -5,6 +5,8 @@ import jwt from 'jsonwebtoken'
 import database from '../db/database'
 import { buildOriginAllowlist, isOriginAllowed } from '../utils/originAllowlist'
 import { isValidMessageIds, isValidRecipientId } from '../utils/validators'
+import { WsMessageSchema } from '../schemas/websocket'
+import type { TypingMessage, ReadReceiptMessage } from '../schemas/websocket'
 
 // Connected users map: userId -> Set<WebSocket>
 const connectedUsers = new Map<string, Set<WebSocket>>()
@@ -16,27 +18,10 @@ const ORIGIN_ALLOWLIST = buildOriginAllowlist(process.env.CLIENT_ORIGIN || 'http
 
 let rateLimitCleanupInterval: NodeJS.Timeout | null = null
 
-interface AuthenticatedWebSocket extends WebSocket {
+export interface AuthenticatedWebSocket extends WebSocket {
   userId: string
   username: string
   isAlive: boolean // Heartbeat flag
-}
-
-interface WSMessage {
-  type: string
-  [key: string]: unknown
-}
-
-interface TypingMessage extends WSMessage {
-  type: 'typing'
-  recipientId: string
-  isTyping: boolean
-}
-
-interface ReadReceiptMessage extends WSMessage {
-  type: 'read'
-  recipientId: string
-  messageIds: string[]
 }
 
 function getClientIp(req: IncomingMessage): string {
@@ -189,21 +174,10 @@ export function initWebSocket(wss: WebSocketServer): void {
         if (data.length > 65_536) return
 
         const raw = data.toString()
-        const message = JSON.parse(raw) as WSMessage
-
-        // Every message must have a valid string type
-        if (
-          typeof message.type !== 'string' ||
-          message.type.length === 0 ||
-          message.type.length > 32
-        ) {
-          return
-        }
-
-        const VALID_WS_TYPES = ['ping', 'typing', 'read'] as const
-        if (!VALID_WS_TYPES.includes(message.type as (typeof VALID_WS_TYPES)[number])) {
-          return
-        }
+        const parsed = JSON.parse(raw)
+        const result = WsMessageSchema.safeParse(parsed)
+        if (!result.success) return
+        const message = result.data
 
         switch (message.type) {
           case 'ping':
@@ -211,22 +185,19 @@ export function initWebSocket(wss: WebSocketServer): void {
             break
 
           case 'typing': {
-            const typed = message as TypingMessage
-            if (!isValidRecipientId(typed.recipientId)) break
-            if (typeof typed.isTyping !== 'boolean') break
+            if (!isValidRecipientId(message.recipientId)) break
             // Prevent sending typing to self
-            if (typed.recipientId === ws.userId) break
-            handleTyping(ws.userId, ws.username, typed)
+            if (message.recipientId === ws.userId) break
+            handleTyping(ws.userId, ws.username, message)
             break
           }
 
           case 'read': {
-            const readMsg = message as ReadReceiptMessage
-            if (!isValidRecipientId(readMsg.recipientId)) break
-            if (!isValidMessageIds(readMsg.messageIds)) break
+            if (!isValidRecipientId(message.recipientId)) break
+            if (!isValidMessageIds(message.messageIds)) break
             // Prevent sending read receipt to self
-            if (readMsg.recipientId === ws.userId) break
-            handleReadReceipt(ws.userId, readMsg)
+            if (message.recipientId === ws.userId) break
+            handleReadReceipt(ws.userId, message)
             break
           }
 

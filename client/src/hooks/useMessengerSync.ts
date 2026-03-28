@@ -1,14 +1,22 @@
-﻿'use client';
+﻿"use client";
 
-import { useEffect, useSyncExternalStore } from 'react';
-import { useRouter } from 'next/navigation';
-import { v4 as uuidv4 } from 'uuid';
-import { authApi, messagesApi } from '@/lib/api';
-import { wsClient } from '@/lib/websocket';
-import { notifyIncomingMessage } from '@/lib/notifications';
-import { playMessageSound, initSoundPreference } from '@/lib/sounds';
-import { reconcileSettingsConsistency } from '@/lib/settingsConsistency';
-import { useAuthStore, useContactsStore, useChatsStore, useSessionsStore, useUIStore, useBlockedStore, type MessageAttachment } from '@/stores';
+import { useEffect, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import { v4 as uuidv4 } from "uuid";
+import { authApi, messagesApi } from "@/lib/api";
+import { wsClient } from "@/lib/websocket";
+import { notifyIncomingMessage } from "@/lib/notifications";
+import { playMessageSound, initSoundPreference } from "@/lib/sounds";
+import { reconcileSettingsConsistency } from "@/lib/settingsConsistency";
+import {
+  useAuthStore,
+  useContactsStore,
+  useChatsStore,
+  useSessionsStore,
+  useUIStore,
+  useBlockedStore,
+  type MessageAttachment,
+} from "@/stores";
 import {
   loadChats,
   loadContacts,
@@ -22,9 +30,12 @@ import {
   consumeOneTimePreKey,
   type Contact,
   hasAccount,
-} from '@/crypto/storage';
-import { decodeMessagePayload, getSenderExchangeKeyFromPayload } from '@/lib/messagePayload';
-import { parseRatchetEnvelope } from '@/lib/ratchetPayload';
+} from "@/crypto/storage";
+import {
+  decodeMessagePayload,
+  getSenderExchangeKeyFromPayload,
+} from "@/lib/messagePayload";
+import { parseRatchetEnvelope } from "@/lib/ratchetPayload";
 import {
   deserializeSession,
   initReceiverSession,
@@ -33,27 +44,41 @@ import {
   x3dhRespond,
   type EncryptedMessage,
   type DoubleRatchetSession,
-} from '@/crypto/ratchet';
-import { generateExchangeKeyPair, zeroBytes, type KeyPair } from '@/crypto/keys';
-import { checkAndRotateSpk } from '@/crypto/spkRotation';
+} from "@/crypto/ratchet";
+import {
+  generateExchangeKeyPair,
+  zeroBytes,
+  type KeyPair,
+} from "@/crypto/keys";
+import { checkAndRotateSpk } from "@/crypto/spkRotation";
 
 function reportCryptoIssue(message: string) {
-  useUIStore.getState().setCryptoBanner({ level: 'warning', message });
+  useUIStore.getState().setCryptoBanner({ level: "warning", message });
 }
 
 /** Deep-clone a ratchet session so we can attempt decrypt without mutating the original. */
 function cloneSession(s: DoubleRatchetSession): DoubleRatchetSession {
   return {
-    dhSendingKeyPair: { publicKey: s.dhSendingKeyPair.publicKey, secretKey: s.dhSendingKeyPair.secretKey },
+    dhSendingKeyPair: {
+      publicKey: s.dhSendingKeyPair.publicKey,
+      secretKey: s.dhSendingKeyPair.secretKey,
+    },
     dhReceivingPublicKey: s.dhReceivingPublicKey,
     rootKey: new Uint8Array(s.rootKey),
-    sendingChainKey: s.sendingChainKey ? new Uint8Array(s.sendingChainKey) : null,
-    receivingChainKey: s.receivingChainKey ? new Uint8Array(s.receivingChainKey) : null,
+    sendingChainKey: s.sendingChainKey
+      ? new Uint8Array(s.sendingChainKey)
+      : null,
+    receivingChainKey: s.receivingChainKey
+      ? new Uint8Array(s.receivingChainKey)
+      : null,
     sendingMessageNumber: s.sendingMessageNumber,
     receivingMessageNumber: s.receivingMessageNumber,
     previousSendingChainLength: s.previousSendingChainLength,
     skippedMessageKeys: new Map(
-      Array.from(s.skippedMessageKeys.entries()).map(([k, v]) => [k, new Uint8Array(v)])
+      Array.from(s.skippedMessageKeys.entries()).map(([k, v]) => [
+        k,
+        new Uint8Array(v),
+      ]),
     ),
   };
 }
@@ -68,6 +93,9 @@ function zeroSessionKeys(s: DoubleRatchetSession): void {
   }
   s.skippedMessageKeys.clear();
 }
+
+// Track which chatIds contain self-destruct messages to avoid scanning all chats
+const selfDestructChatIds = new Set<string>();
 
 // Per-sender lock to prevent concurrent ratchet session mutations
 const senderLocks = new Map<string, Promise<unknown>>();
@@ -85,20 +113,24 @@ function withSenderLock<T>(senderId: string, fn: () => Promise<T>): Promise<T> {
 
 function loadBlockedIds(): string[] {
   try {
-    const raw = localStorage.getItem('lume:blocked');
+    const raw = localStorage.getItem("lume:blocked");
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((id): id is string => typeof id === 'string');
-  } catch { /* ignore */ }
+    return parsed.filter((id): id is string => typeof id === "string");
+  } catch {
+    /* ignore */
+  }
   return [];
 }
 
 function saveBlockedIds(): void {
   try {
     const ids = Object.keys(useBlockedStore.getState().blockedIds);
-    localStorage.setItem('lume:blocked', JSON.stringify(ids));
-  } catch { /* ignore */ }
+    localStorage.setItem("lume:blocked", JSON.stringify(ids));
+  } catch {
+    /* ignore */
+  }
 }
 
 const PREKEY_LOW_THRESHOLD = 10;
@@ -110,7 +142,7 @@ const PREKEY_REPLENISH_COUNT = 20;
 async function replenishPrekeys(
   masterKey: Uint8Array,
   userId: string,
-  identityKeys: import('@/crypto/keys').IdentityKeys
+  identityKeys: import("@/crypto/keys").IdentityKeys,
 ): Promise<void> {
   const material = await loadPreKeyMaterial(masterKey);
   if (!material) return;
@@ -127,9 +159,17 @@ async function replenishPrekeys(
     publicKey: k.publicKey,
   }));
 
-  const { error } = await authApi.uploadPrekeys(userId, uploadPayload, identityKeys);
+  const { error } = await authApi.uploadPrekeys(
+    userId,
+    uploadPayload,
+    identityKeys,
+  );
   if (error) {
-    if (process.env.NODE_ENV !== 'production') console.warn('Failed to upload replenished prekeys, skipping local save:', error);
+    if (process.env.NODE_ENV !== "production")
+      console.warn(
+        "Failed to upload replenished prekeys, skipping local save:",
+        error,
+      );
     return;
   }
 
@@ -146,7 +186,9 @@ async function ensureContact(params: {
 }): Promise<Contact | null> {
   const { senderId, senderUsername, encryptedPayload, masterKey } = params;
 
-  const existing = useContactsStore.getState().contacts.find((c) => c.id === senderId);
+  const existing = useContactsStore
+    .getState()
+    .contacts.find((c) => c.id === senderId);
   if (existing) return existing;
 
   let newContact: Contact | null = null;
@@ -160,7 +202,8 @@ async function ensureContact(params: {
       id: data.id,
       username: data.username,
       publicKey: data.identityKey,
-      exchangeKey: data.exchangeIdentityKey || data.exchangeKey || data.signedPrekey,
+      exchangeKey:
+        data.exchangeIdentityKey || data.exchangeKey || data.signedPrekey,
       addedAt: Date.now(),
     };
   } else {
@@ -170,7 +213,7 @@ async function ensureContact(params: {
     newContact = {
       id: senderId,
       username: senderUsername,
-      publicKey: '',
+      publicKey: "",
       exchangeKey: senderExchangeKey,
       addedAt: Date.now(),
     };
@@ -196,7 +239,14 @@ async function appendIncomingMessage(params: {
   fallbackTimestamp: number;
   masterKey: Uint8Array | null;
 }): Promise<boolean> {
-  const { senderId, senderUsername, messageId, encryptedPayload, fallbackTimestamp, masterKey } = params;
+  const {
+    senderId,
+    senderUsername,
+    messageId,
+    encryptedPayload,
+    fallbackTimestamp,
+    masterKey,
+  } = params;
 
   const identityKeys = useAuthStore.getState().identityKeys;
   if (!identityKeys) return false;
@@ -205,19 +255,26 @@ async function appendIncomingMessage(params: {
 
   const ratchetEnvelope = parseRatchetEnvelope(encryptedPayload);
 
-  const contactForMessage = await ensureContact({ senderId, senderUsername, encryptedPayload, masterKey });
+  const contactForMessage = await ensureContact({
+    senderId,
+    senderUsername,
+    encryptedPayload,
+    masterKey,
+  });
   if (!contactForMessage) return false;
 
-  let content = '[Unable to decrypt message]';
+  let content = "[Unable to decrypt message]";
   let timestamp = fallbackTimestamp;
   let selfDestructSeconds: number | null | undefined = null;
-  let replyTo: { messageId: string; content: string; senderId: string } | undefined;
+  let replyTo:
+    | { messageId: string; content: string; senderId: string }
+    | undefined;
   let attachment: MessageAttachment | undefined;
 
   if (ratchetEnvelope) {
     // v2: X3DH + Double Ratchet (lume-ratchet)
     if (!masterKey) {
-      reportCryptoIssue('Unlock to decrypt secure messages.');
+      reportCryptoIssue("Unlock to decrypt secure messages.");
       return false;
     }
 
@@ -230,21 +287,28 @@ async function appendIncomingMessage(params: {
     if (!session) {
       const x3dh = ratchetEnvelope.x3dh;
       if (!x3dh) {
-        reportCryptoIssue('Secure session setup data missing (X3DH).');
+        reportCryptoIssue("Secure session setup data missing (X3DH).");
         return false;
       }
 
       const material = await loadPreKeyMaterial(masterKey);
       if (!material) {
-        reportCryptoIssue('Missing on-device keys. Restore access or recreate your account.');
+        reportCryptoIssue(
+          "Missing on-device keys. Restore access or recreate your account.",
+        );
         return false;
       }
 
       let opk: KeyPair | null = null;
       if (x3dh.recipientOneTimePreKey) {
-        opk = await consumeOneTimePreKey(x3dh.recipientOneTimePreKey, masterKey);
+        opk = await consumeOneTimePreKey(
+          x3dh.recipientOneTimePreKey,
+          masterKey,
+        );
         if (!opk) {
-          reportCryptoIssue('One-time prekey missing. Ask your contact to retry.');
+          reportCryptoIssue(
+            "One-time prekey missing. Ask your contact to retry.",
+          );
           return false;
         }
       }
@@ -254,7 +318,7 @@ async function appendIncomingMessage(params: {
         material.signedPreKey,
         opk,
         x3dh.senderIdentityKey,
-        x3dh.senderEphemeralKey
+        x3dh.senderEphemeralKey,
       );
       session = initReceiverSession(sharedSecret, material.signedPreKey);
     }
@@ -273,12 +337,16 @@ async function appendIncomingMessage(params: {
     try {
       plaintextBytes = ratchetDecrypt(sessionClone, encrypted);
     } catch {
-      reportCryptoIssue('Secure message decrypt failed. Session may be out of sync.');
+      reportCryptoIssue(
+        "Secure message decrypt failed. Session may be out of sync.",
+      );
       return false;
     }
 
     if (!plaintextBytes) {
-      reportCryptoIssue('Secure message decrypt failed. Session may be out of sync.');
+      reportCryptoIssue(
+        "Secure message decrypt failed. Session may be out of sync.",
+      );
       return false;
     }
 
@@ -294,36 +362,47 @@ async function appendIncomingMessage(params: {
         replyTo?: unknown;
         attachment?: unknown;
       };
-      if (typeof decoded.content === 'string') {
+      if (typeof decoded.content === "string") {
         content = decoded.content;
       }
-      if (typeof decoded.timestamp === 'number') {
+      if (typeof decoded.timestamp === "number") {
         timestamp = decoded.timestamp;
       } else {
         timestamp = ratchetEnvelope.timestamp ?? fallbackTimestamp;
       }
-      if (typeof decoded.selfDestruct === 'number' || decoded.selfDestruct === null) {
+      if (
+        typeof decoded.selfDestruct === "number" ||
+        decoded.selfDestruct === null
+      ) {
         selfDestructSeconds = decoded.selfDestruct as number | null;
       } else {
         selfDestructSeconds = ratchetEnvelope.selfDestruct ?? null;
       }
       // Parse reply reference
-      if (decoded.replyTo && typeof decoded.replyTo === 'object') {
+      if (decoded.replyTo && typeof decoded.replyTo === "object") {
         const rt = decoded.replyTo as Record<string, unknown>;
-        if (typeof rt.messageId === 'string' && typeof rt.content === 'string' && typeof rt.senderId === 'string') {
-          replyTo = { messageId: rt.messageId, content: rt.content, senderId: rt.senderId };
+        if (
+          typeof rt.messageId === "string" &&
+          typeof rt.content === "string" &&
+          typeof rt.senderId === "string"
+        ) {
+          replyTo = {
+            messageId: rt.messageId,
+            content: rt.content,
+            senderId: rt.senderId,
+          };
         }
       }
       // Parse attachment metadata
-      if (decoded.attachment && typeof decoded.attachment === 'object') {
+      if (decoded.attachment && typeof decoded.attachment === "object") {
         const att = decoded.attachment as Record<string, unknown>;
         if (
-          typeof att.fileId === 'string' &&
-          typeof att.fileName === 'string' &&
-          typeof att.mimeType === 'string' &&
-          typeof att.size === 'number' &&
-          typeof att.key === 'string' &&
-          typeof att.nonce === 'string'
+          typeof att.fileId === "string" &&
+          typeof att.fileName === "string" &&
+          typeof att.mimeType === "string" &&
+          typeof att.size === "number" &&
+          typeof att.key === "string" &&
+          typeof att.nonce === "string"
         ) {
           attachment = {
             fileId: att.fileId,
@@ -340,17 +419,21 @@ async function appendIncomingMessage(params: {
       selfDestructSeconds = ratchetEnvelope.selfDestruct ?? null;
     }
 
-    useSessionsStore.getState().upsertSession(senderId, serializeSession(session));
+    useSessionsStore
+      .getState()
+      .upsertSession(senderId, serializeSession(session));
     useUIStore.getState().clearCryptoBanner();
   } else {
     // v1: nacl.box (legacy)
     const senderExchangeKey =
-      contactForMessage.exchangeKey || getSenderExchangeKeyFromPayload(encryptedPayload) || undefined;
+      contactForMessage.exchangeKey ||
+      getSenderExchangeKeyFromPayload(encryptedPayload) ||
+      undefined;
 
     const decoded = decodeMessagePayload(
       encryptedPayload,
       identityKeys.exchange.secretKey,
-      senderExchangeKey
+      senderExchangeKey,
     );
     if (decoded?.content) {
       content = decoded.content;
@@ -384,8 +467,14 @@ async function appendIncomingMessage(params: {
   }
 
   const msgType = attachment
-    ? (attachment.mimeType.startsWith('image/') ? 'image' : 'file')
-    : 'text';
+    ? attachment.mimeType.startsWith("image/")
+      ? "image"
+      : "file"
+    : "text";
+
+  const selfDestructAt = selfDestructSeconds
+    ? timestamp + selfDestructSeconds * 1000
+    : undefined;
 
   useChatsStore.getState().addMessage(targetChat.id, {
     id: messageId,
@@ -394,18 +483,26 @@ async function appendIncomingMessage(params: {
     content,
     type: msgType,
     timestamp,
-    status: 'delivered',
-    selfDestructAt: selfDestructSeconds ? timestamp + selfDestructSeconds * 1000 : undefined,
+    status: "delivered",
+    selfDestructAt,
     replyTo,
     attachment,
   });
+
+  if (selfDestructAt) {
+    selfDestructChatIds.add(targetChat.id);
+  }
 
   return true;
 }
 
 export function useMessengerSync() {
   const router = useRouter();
-  const { isAuthenticated, userId, masterKey, identityKeys, clearAuth } = useAuthStore();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const userId = useAuthStore((s) => s.userId);
+  const masterKey = useAuthStore((s) => s.masterKey);
+  const identityKeys = useAuthStore((s) => s.identityKeys);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
   const setContacts = useContactsStore((s) => s.setContacts);
   const setChats = useChatsStore((s) => s.setChats);
   const setSessions = useSessionsStore((s) => s.setSessions);
@@ -420,8 +517,12 @@ export function useMessengerSync() {
   // Both snapshots use the same fallback so SSR and client agree when persist is absent.
   const hydrated = useSyncExternalStore(
     (onStoreChange) => useAuthStore.subscribe(() => onStoreChange()),
-    () => (useAuthStore as unknown as PersistHydration).persist?.hasHydrated?.() ?? true,
-    () => (useAuthStore as unknown as PersistHydration).persist?.hasHydrated?.() ?? true
+    () =>
+      (useAuthStore as unknown as PersistHydration).persist?.hasHydrated?.() ??
+      true,
+    () =>
+      (useAuthStore as unknown as PersistHydration).persist?.hasHydrated?.() ??
+      true,
   );
 
   useEffect(() => {
@@ -433,7 +534,7 @@ export function useMessengerSync() {
     (async () => {
       const exists = await hasAccount();
       if (!active) return;
-      router.push(exists ? '/unlock' : '/');
+      router.push(exists ? "/unlock" : "/");
     })();
 
     return () => {
@@ -442,7 +543,8 @@ export function useMessengerSync() {
   }, [hydrated, isAuthenticated, router]);
 
   useEffect(() => {
-    if (!hydrated || !isAuthenticated || !userId || !identityKeys || !masterKey) return undefined;
+    if (!hydrated || !isAuthenticated || !userId || !identityKeys || !masterKey)
+      return undefined;
 
     let isMounted = true;
     let saveChatsTimer: ReturnType<typeof setTimeout> | null = null;
@@ -472,10 +574,13 @@ export function useMessengerSync() {
         nextShowHiddenChats = consistency.showHiddenChats;
 
         if (
-          process.env.NODE_ENV !== 'production' &&
+          process.env.NODE_ENV !== "production" &&
           consistency.issues.length > 0
         ) {
-          console.warn('[settings-consistency]', consistency.issues.join(' | '));
+          console.warn(
+            "[settings-consistency]",
+            consistency.issues.join(" | "),
+          );
         }
       }
 
@@ -542,7 +647,10 @@ export function useMessengerSync() {
     const syncPendingMessages = async () => {
       if (!identityKeys || !userId) return;
 
-      const { data, error } = await messagesApi.getPending(userId, identityKeys);
+      const { data, error } = await messagesApi.getPending(
+        userId,
+        identityKeys,
+      );
       if (error || !data) return;
 
       const ackIds: string[] = [];
@@ -555,7 +663,7 @@ export function useMessengerSync() {
             encryptedPayload: pending.encryptedPayload,
             fallbackTimestamp: pending.timestamp,
             masterKey,
-          })
+          }),
         );
         if (processed) ackIds.push(pending.id);
       }
@@ -580,9 +688,9 @@ export function useMessengerSync() {
         if (!isMounted) return;
 
         if (error || !data) {
-          if (error === 'User not found') {
+          if (error === "User not found") {
             clearAuth();
-            router.push('/');
+            router.push("/");
             return;
           }
 
@@ -634,7 +742,7 @@ export function useMessengerSync() {
           syncPendingMessages().catch(console.error);
         }
       } catch (e) {
-        console.error('Token refresh error:', e);
+        console.error("Token refresh error:", e);
       }
     });
 
@@ -649,20 +757,38 @@ export function useMessengerSync() {
       if (saveChatsTimer) {
         clearTimeout(saveChatsTimer);
         saveChatsTimer = null;
-        saveChats(useChatsStore.getState().chats, masterKey).catch(console.error);
+        saveChats(useChatsStore.getState().chats, masterKey).catch(
+          console.error,
+        );
       }
       if (saveContactsTimer) {
         clearTimeout(saveContactsTimer);
         saveContactsTimer = null;
-        saveContacts(useContactsStore.getState().contacts, masterKey).catch(console.error);
+        saveContacts(useContactsStore.getState().contacts, masterKey).catch(
+          console.error,
+        );
       }
       if (saveSessionsTimer) {
         clearTimeout(saveSessionsTimer);
         saveSessionsTimer = null;
-        saveRatchetSessions(useSessionsStore.getState().sessions, masterKey).catch(console.error);
+        saveRatchetSessions(
+          useSessionsStore.getState().sessions,
+          masterKey,
+        ).catch(console.error);
       }
     };
-  }, [hydrated, isAuthenticated, userId, masterKey, identityKeys, setContacts, setChats, setSessions, clearAuth, router]);
+  }, [
+    hydrated,
+    isAuthenticated,
+    userId,
+    masterKey,
+    identityKeys,
+    setContacts,
+    setChats,
+    setSessions,
+    clearAuth,
+    router,
+  ]);
 
   useEffect(() => {
     if (!hydrated || !isAuthenticated || !identityKeys) return undefined;
@@ -685,7 +811,7 @@ export function useMessengerSync() {
             encryptedPayload: data.encryptedPayload,
             fallbackTimestamp: data.timestamp,
             masterKey: useAuthStore.getState().masterKey,
-          })
+          }),
         );
 
         if (processed) {
@@ -695,7 +821,10 @@ export function useMessengerSync() {
           const activeChat = useChatsStore.getState().activeChatId;
           const chatsNow = useChatsStore.getState().chats;
           const activeContactChat = chatsNow.find((c) => c.id === activeChat);
-          if (activeContactChat && activeContactChat.contactId === data.senderId) {
+          if (
+            activeContactChat &&
+            activeContactChat.contactId === data.senderId
+          ) {
             wsClient.sendReadReceipt(data.senderId, [data.messageId]);
           } else {
             // Notify if the chat is not currently active
@@ -710,15 +839,19 @@ export function useMessengerSync() {
           const currentMasterKey = useAuthStore.getState().masterKey;
           const currentUserId = useAuthStore.getState().userId;
           if (currentMasterKey && currentUserId) {
-            replenishPrekeys(currentMasterKey, currentUserId, identityKeys).catch(console.error);
+            replenishPrekeys(
+              currentMasterKey,
+              currentUserId,
+              identityKeys,
+            ).catch(console.error);
           }
         }
       })();
     };
 
-    wsClient.on('new_message', handleNewMessage);
+    wsClient.on("new_message", handleNewMessage);
     return () => {
-      wsClient.off('new_message', handleNewMessage);
+      wsClient.off("new_message", handleNewMessage);
     };
   }, [hydrated, isAuthenticated, identityKeys]);
 
@@ -732,23 +865,28 @@ export function useMessengerSync() {
         messageIds: string[];
       };
 
-      const msgIdSet = new Set(data.messageIds);
       const chats = useChatsStore.getState().chats;
 
       // The read receipt sender is the contact — find their chat directly
       const chat = chats.find((c) => c.contactId === data.senderId);
       if (!chat) return;
 
-      for (const msg of chat.messages) {
-        if (msgIdSet.has(msg.id) && msg.status !== 'read') {
-          useChatsStore.getState().updateMessage(chat.id, msg.id, { status: 'read' });
-        }
+      // Filter to only messages that actually need updating to avoid unnecessary re-renders
+      const msgIdSet = new Set(data.messageIds);
+      const idsToUpdate = chat.messages
+        .filter((msg) => msgIdSet.has(msg.id) && msg.status !== "read")
+        .map((msg) => msg.id);
+
+      if (idsToUpdate.length > 0) {
+        useChatsStore
+          .getState()
+          .batchUpdateMessageStatus(chat.id, idsToUpdate, "read");
       }
     };
 
-    wsClient.on('read', handleReadReceipt);
+    wsClient.on("read", handleReadReceipt);
     return () => {
-      wsClient.off('read', handleReadReceipt);
+      wsClient.off("read", handleReadReceipt);
     };
   }, [hydrated, isAuthenticated]);
 
@@ -756,18 +894,51 @@ export function useMessengerSync() {
     if (!hydrated || !isAuthenticated) return undefined;
 
     const interval = setInterval(() => {
+      // Fast path: skip scan entirely when no chats have self-destruct messages
+      if (selfDestructChatIds.size === 0) return;
+
       const now = Date.now();
       const chats = useChatsStore.getState().chats;
-      const hasExpired = chats.some((chat) => chat.messages.some((msg) => msg.selfDestructAt && msg.selfDestructAt <= now));
+
+      // Only check chats known to have self-destruct messages
+      let hasExpired = false;
+      for (const chatId of selfDestructChatIds) {
+        const chat = chats.find((c) => c.id === chatId);
+        if (!chat) {
+          selfDestructChatIds.delete(chatId);
+          continue;
+        }
+        const hasSelfDestruct = chat.messages.some((msg) => msg.selfDestructAt);
+        if (!hasSelfDestruct) {
+          // Chat no longer has any self-destruct messages; remove from tracking
+          selfDestructChatIds.delete(chatId);
+          continue;
+        }
+        if (
+          chat.messages.some(
+            (msg) => msg.selfDestructAt && msg.selfDestructAt <= now,
+          )
+        ) {
+          hasExpired = true;
+          break;
+        }
+      }
+
       if (hasExpired) {
         useChatsStore.getState().pruneExpiredMessages(now);
       }
-    }, 1000);
+    }, 5000);
+
+    // Seed the tracking set from existing chats on mount (e.g. after page reload)
+    const chatsOnMount = useChatsStore.getState().chats;
+    for (const chat of chatsOnMount) {
+      if (chat.messages.some((msg) => msg.selfDestructAt)) {
+        selfDestructChatIds.add(chat.id);
+      }
+    }
 
     return () => clearInterval(interval);
   }, [hydrated, isAuthenticated]);
 
   return { hydrated };
 }
-
-

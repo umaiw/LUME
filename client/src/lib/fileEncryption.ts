@@ -7,6 +7,14 @@
 import nacl from 'tweetnacl';
 import { encodeBase64, decodeBase64 } from 'tweetnacl-util';
 
+/**
+ * Yield the thread so the browser can paint and React can update.
+ * Used to wrap heavy synchronous crypto operations.
+ */
+async function yieldThread(): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, 0));
+}
+
 export interface EncryptedFile {
   /** Base64-encoded encrypted data */
   ciphertext: string;
@@ -32,14 +40,17 @@ export interface DecryptedFile {
  * Encrypt a file for upload.
  * Returns the encrypted data + a symmetric key that must be sent in the message.
  */
-export function encryptFile(
+export async function encryptFile(
   data: Uint8Array,
   mimeType: string,
   fileName: string
-): EncryptedFile {
+): Promise<EncryptedFile> {
   const key = nacl.randomBytes(nacl.secretbox.keyLength);
   const nonce = nacl.randomBytes(nacl.secretbox.nonceLength);
+
+  await yieldThread();
   const ciphertext = nacl.secretbox(data, nonce, key);
+  await yieldThread();
 
   return {
     ciphertext: encodeBase64(ciphertext),
@@ -54,19 +65,22 @@ export function encryptFile(
 /**
  * Decrypt a downloaded file using the key from the message payload.
  */
-export function decryptFile(
+export async function decryptFile(
   ciphertextBase64: string,
   nonceBase64: string,
   keyBase64: string,
   mimeType: string,
   fileName: string
-): DecryptedFile | null {
+): Promise<DecryptedFile | null> {
   try {
     const ciphertext = decodeBase64(ciphertextBase64);
     const nonce = decodeBase64(nonceBase64);
     const key = decodeBase64(keyBase64);
 
+    await yieldThread();
     const plaintext = nacl.secretbox.open(ciphertext, nonce, key);
+    await yieldThread();
+
     if (!plaintext) return null;
 
     return { data: plaintext, mimeType, fileName };

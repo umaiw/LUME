@@ -7,10 +7,11 @@ import rateLimit from 'express-rate-limit'
 import database from '../db/database'
 import { broadcastToUser } from '../websocket/handler'
 import { requireSignature } from '../middleware/auth'
-import { validateBody, validateParams } from '../middleware/validate'
+import { validateBody, validateParams, validateQuery } from '../middleware/validate'
 import {
   SendMessageBodySchema,
   PendingParamSchema,
+  PendingQuerySchema,
   MessageIdParamSchema,
   AcknowledgeBodySchema,
 } from '../schemas/messages'
@@ -25,12 +26,11 @@ const sendRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req: Request): string => {
+    if (req.user?.userId) return `uid:${req.user.userId}`
     const identityKey = req.user?.identityKey
     if (identityKey) {
       const user = database.getUserByIdentityKey(identityKey)
-      if (user) {
-        return `uid:${user.id}`
-      }
+      if (user) return `uid:${user.id}`
     }
     return `ip:${req.ip || '127.0.0.1'}`
   },
@@ -243,9 +243,13 @@ router.get(
   '/pending/:userId',
   requireSignature,
   validateParams(PendingParamSchema),
+  validateQuery(PendingQuerySchema),
   (req: Request, res: Response) => {
     try {
       const userId = req.params.userId!
+      const { limit, after } = (
+        req as Request & { validatedQuery?: { limit: number; after?: string } }
+      ).validatedQuery ?? { limit: 100 }
 
       const user = database.getUserById(userId)
       if (!user || user.identity_key !== req.user?.identityKey) {
@@ -253,7 +257,10 @@ router.get(
         return
       }
 
-      const messages = database.getPendingMessages(userId)
+      const { messages, hasMore } = database.getPendingMessages(userId, {
+        limit,
+        afterId: after,
+      })
       const senderIds = [...new Set(messages.map(msg => msg.sender_id))]
       const senderMap = new Map(
         database.getUsersByIds(senderIds).map(sender => [sender.id, sender.username])
@@ -267,7 +274,10 @@ router.get(
         timestamp: msg.created_at * 1000,
       }))
 
-      res.json({ messages: messagesWithSenders })
+      const lastMessage = messages[messages.length - 1]
+      const nextCursor = hasMore && lastMessage ? lastMessage.id : null
+
+      res.json({ messages: messagesWithSenders, nextCursor, hasMore })
     } catch (error) {
       console.error(
         'Get pending messages error:',
@@ -287,11 +297,8 @@ router.delete(
     try {
       const messageId = req.params.messageId!
 
-      const signer = req.user?.identityKey
-        ? database.getUserByIdentityKey(req.user.identityKey)
-        : undefined
-
-      if (!signer) {
+      const signerId = req.user?.userId
+      if (!signerId) {
         res.status(403).json({ error: 'Unauthorized' })
         return
       }
@@ -302,7 +309,7 @@ router.delete(
         return
       }
 
-      if (pending.recipient_id !== signer.id) {
+      if (pending.recipient_id !== signerId) {
         res.status(403).json({ error: 'Unauthorized access to message' })
         return
       }
@@ -328,17 +335,14 @@ router.post(
     try {
       const { messageIds } = req.body as { messageIds: string[] }
 
-      const signer = req.user?.identityKey
-        ? database.getUserByIdentityKey(req.user.identityKey)
-        : undefined
-
-      if (!signer) {
+      const signerId = req.user?.userId
+      if (!signerId) {
         res.status(403).json({ error: 'Unauthorized' })
         return
       }
 
       let acknowledged = 0
-      acknowledged = database.batchDeleteMessages(messageIds, signer.id)
+      acknowledged = database.batchDeleteMessages(messageIds, signerId)
 
       res.json({ acknowledged })
     } catch (error) {

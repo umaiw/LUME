@@ -54,12 +54,11 @@ const sessionRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req: Request): string => {
+    if (req.user?.userId) return `uid:${req.user.userId}`
     const identityKey = req.user?.identityKey
     if (identityKey) {
       const user = database.getUserByIdentityKey(identityKey)
-      if (user) {
-        return `uid:${user.id}`
-      }
+      if (user) return `uid:${user.id}`
     }
     return `ip:${req.ip || '127.0.0.1'}`
   },
@@ -72,12 +71,11 @@ const keysRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req: Request): string => {
+    if (req.user?.userId) return `uid:${req.user.userId}`
     const identityKey = req.user?.identityKey
     if (identityKey) {
       const user = database.getUserByIdentityKey(identityKey)
-      if (user) {
-        return `uid:${user.id}`
-      }
+      if (user) return `uid:${user.id}`
     }
     return `ip:${req.ip || '127.0.0.1'}`
   },
@@ -208,12 +206,11 @@ const bundleRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req: Request): string => {
+    if (req.user?.userId) return `bundle:${req.user.userId}`
     const identityKey = req.user?.identityKey
     if (identityKey) {
       const user = database.getUserByIdentityKey(identityKey)
-      if (user) {
-        return `bundle:${user.id}`
-      }
+      if (user) return `bundle:${user.id}`
     }
     return `bundle:ip:${req.ip || '127.0.0.1'}`
   },
@@ -231,9 +228,7 @@ router.post(
       const { username } = req.body as { username: string }
 
       // Prevent requesting your own bundle (no reason to consume your own prekeys).
-      const requester = req.user?.identityKey
-        ? database.getUserByIdentityKey(req.user.identityKey)
-        : undefined
+      const requester = req.user?.userId ? database.getUserById(req.user.userId) : undefined
 
       const user = database.getUserByUsername(username)
       if (!user) {
@@ -459,15 +454,13 @@ router.post(
     try {
       const { blockedId } = req.body as { blockedId: string }
 
-      const signer = req.user?.identityKey
-        ? database.getUserByIdentityKey(req.user.identityKey)
-        : undefined
-      if (!signer) {
+      const signerId = req.user?.userId
+      if (!signerId) {
         res.status(403).json({ error: 'Unauthorized' })
         return
       }
 
-      if (signer.id === blockedId) {
+      if (signerId === blockedId) {
         res.status(400).json({ error: 'Cannot block yourself' })
         return
       }
@@ -478,8 +471,8 @@ router.post(
         return
       }
 
-      database.blockUser(signer.id, blockedId)
-      audit('block_user', { blockerId: signer.id, blockedId })
+      database.blockUser(signerId, blockedId)
+      audit('block_user', { blockerId: signerId, blockedId })
       res.json({ ok: true })
     } catch (error) {
       console.error('Block error:', error instanceof Error ? error.message : String(error))
@@ -497,16 +490,14 @@ router.post(
     try {
       const { blockedId } = req.body as { blockedId: string }
 
-      const signer = req.user?.identityKey
-        ? database.getUserByIdentityKey(req.user.identityKey)
-        : undefined
-      if (!signer) {
+      const signerId = req.user?.userId
+      if (!signerId) {
         res.status(403).json({ error: 'Unauthorized' })
         return
       }
 
-      database.unblockUser(signer.id, blockedId)
-      audit('unblock_user', { blockerId: signer.id, blockedId })
+      database.unblockUser(signerId, blockedId)
+      audit('unblock_user', { blockerId: signerId, blockedId })
       res.json({ ok: true })
     } catch (error) {
       console.error('Unblock error:', error instanceof Error ? error.message : String(error))
@@ -518,15 +509,13 @@ router.post(
 // GET /auth/blocked
 router.get('/blocked', requireSignature, keysRateLimit, (req: Request, res: Response) => {
   try {
-    const signer = req.user?.identityKey
-      ? database.getUserByIdentityKey(req.user.identityKey)
-      : undefined
-    if (!signer) {
+    const signerId = req.user?.userId
+    if (!signerId) {
       res.status(403).json({ error: 'Unauthorized' })
       return
     }
 
-    const blockedIds = database.getBlockedUsers(signer.id)
+    const blockedIds = database.getBlockedUsers(signerId)
     res.json({ blockedIds })
   } catch (error) {
     console.error(
